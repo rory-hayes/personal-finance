@@ -3,6 +3,7 @@ import { Upload as UploadIcon, FileText, AlertCircle, CheckCircle, X, Plus, Cale
 import { useFinanceData } from '../hooks/useFinanceData';
 import { parseCSV, parsePDF } from '../utils/fileParser';
 import TransactionReviewTable from './TransactionReviewTable';
+import { Transaction } from '../types';
 
 const Expenses: React.FC = () => {
   const [dragActive, setDragActive] = useState(false);
@@ -173,20 +174,54 @@ const Expenses: React.FC = () => {
   };
 
   const handleApproveTransactions = async (approvedTransactions: Transaction[]) => {
-    for (const transaction of approvedTransactions) {
-      await addTransaction(transaction);
+    try {
+      console.log('Importing transactions:', approvedTransactions);
+      
+      // Show loading state
+      setUploading(true);
+      
+      let successCount = 0;
+      let errorCount = 0;
+      
+      for (const transaction of approvedTransactions) {
+        try {
+          await addTransaction(transaction);
+          successCount++;
+          console.log('Transaction imported successfully:', transaction);
+        } catch (error) {
+          errorCount++;
+          console.error('Error importing transaction:', transaction, error);
+        }
+      }
+      
+      setShowReviewModal(false);
+      setPendingTransactions([]);
+      setUploading(false);
+      
+      // Update upload results to show import status
+      setUploadResults(prev => prev.map((result: any) => 
+        result.transactionCount ? {
+          ...result,
+          success: successCount > 0,
+          message: errorCount > 0 
+            ? `Imported ${successCount} transactions, ${errorCount} failed`
+            : `Successfully imported ${successCount} transactions`,
+          transactionCount: successCount
+        } : result
+      ));
+      
+      // Show user feedback
+      if (successCount > 0) {
+        alert(`Successfully imported ${successCount} transaction${successCount === 1 ? '' : 's'}!`);
+      } else {
+        alert('Failed to import transactions. Please check your database connection.');
+      }
+      
+    } catch (error) {
+      console.error('Error in handleApproveTransactions:', error);
+      setUploading(false);
+      alert('Error importing transactions. Please try again.');
     }
-    setShowReviewModal(false);
-    setPendingTransactions([]);
-    
-    // Update upload results to show approved count
-    setUploadResults(prev => prev.map(result => 
-      result.transactionCount ? {
-        ...result,
-        message: result.message.replace('Found', 'Successfully imported'),
-        transactionCount: approvedTransactions.length
-      } : result
-    ));
   };
 
   const handleRejectTransactions = () => {

@@ -22,6 +22,7 @@ import {
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, PieChart as RechartsPieChart, Cell, Pie } from 'recharts';
 import { useFinanceData } from '../hooks/useFinanceData';
 import { Account, VestingSchedule } from '../types';
+import Debug from './Debug';
 
 const Dashboard: React.FC = () => {
   const { 
@@ -160,6 +161,7 @@ const Dashboard: React.FC = () => {
   const vestingChartData = useMemo(() => {
     const months = [];
     const currentDate = new Date();
+    let cumulativeVesting = 0;
     
     // Generate 12 months of data for selected year
     for (let i = 0; i < 12; i++) {
@@ -167,37 +169,40 @@ const Dashboard: React.FC = () => {
       const monthKey = date.toISOString().slice(0, 7);
       const monthName = date.toLocaleDateString('en-US', { month: 'short' });
       
-      let totalVesting = 0;
-      let netWorth = totalAssetValue; // Base net worth
+      let monthlyVesting = 0;
       
       // Calculate vesting for this month
-      vestingSchedules.forEach(schedule => {
+      vestingSchedules.forEach((schedule: VestingSchedule) => {
         const startDate = new Date(schedule.startDate);
         const endDate = new Date(schedule.endDate);
         
         // Check if this month falls within the vesting period
         if (date >= startDate && date <= endDate) {
-          totalVesting += schedule.monthlyAmount;
+          monthlyVesting += schedule.monthlyAmount;
           
-          // Add cliff amount if applicable
+          // Add cliff amount if applicable (only once at the cliff period)
           const monthsVested = Math.floor((date.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24 * 30));
           if (schedule.cliffAmount && schedule.cliffPeriod && monthsVested === schedule.cliffPeriod) {
-            totalVesting += schedule.cliffAmount;
+            monthlyVesting += schedule.cliffAmount;
           }
         }
       });
       
-      // Calculate accumulated net worth (simplified)
+      // Add monthly vesting to cumulative total
+      cumulativeVesting += monthlyVesting;
+      
+      // Calculate net worth for this month (base net worth + accumulated savings)
+      let netWorth = totalAssetValue;
       if (date <= currentDate) {
         const monthsFromStart = (date.getFullYear() - currentDate.getFullYear()) * 12 + (date.getMonth() - currentDate.getMonth());
-        netWorth += monthsFromStart * (monthlySavings + totalVesting);
+        netWorth += Math.max(0, monthsFromStart * monthlySavings);
       }
       
       months.push({
         month: monthName,
-        vesting: totalVesting,
+        vesting: cumulativeVesting,
         netWorth: Math.max(netWorth, totalAssetValue),
-        total: totalVesting + Math.max(netWorth, totalAssetValue)
+        total: cumulativeVesting + Math.max(netWorth, totalAssetValue)
       });
     }
     
@@ -322,13 +327,16 @@ const Dashboard: React.FC = () => {
     
     // Validate and calculate allocations
     for (const accountId in allocationFormData) {
-      const allocation = parseFloat(allocationFormData[accountId].newAllocation);
-      if (!isNaN(allocation) && allocation > 0) {
-        allocations[accountId] = allocation;
-        totalAllocated += allocation;
+      const monthlyAllocation = parseFloat(allocationFormData[accountId].newAllocation);
+      if (!isNaN(monthlyAllocation) && monthlyAllocation > 0) {
+        const currentBalance = parseFloat(allocationFormData[accountId].currentBalance);
+        const newBalance = currentBalance + monthlyAllocation;
         
-        // Update the account balance
-        await updateAccount(accountId, { balance: allocation });
+        allocations[accountId] = newBalance;
+        totalAllocated += monthlyAllocation;
+        
+        // Update the account balance by adding the allocation to current balance
+        await updateAccount(accountId, { balance: newBalance });
       }
     }
     
@@ -346,7 +354,7 @@ const Dashboard: React.FC = () => {
     });
     
     // Reset form
-    setAllocationFormData(accounts.reduce((acc, account) => ({
+    setAllocationFormData(accounts.reduce((acc: Record<string, { currentBalance: string; newAllocation: string }>, account: Account) => ({
       ...acc,
       [account.id]: { currentBalance: allocations[account.id]?.toString() || account.balance.toString(), newAllocation: '' }
     }), {}));
@@ -385,6 +393,7 @@ const Dashboard: React.FC = () => {
 
   return (
     <div className="space-y-6">
+      <Debug />
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -1114,7 +1123,7 @@ const Dashboard: React.FC = () => {
                       
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">
-                          New Total Amount (€)
+                          Monthly Allocation (€)
                         </label>
                         <input
                           type="number"
@@ -1126,7 +1135,7 @@ const Dashboard: React.FC = () => {
                               newAllocation: e.target.value
                             }
                           }))}
-                          placeholder="Enter new total"
+                          placeholder="Enter allocation amount"
                           min="0"
                           step="0.01"
                           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -1137,10 +1146,10 @@ const Dashboard: React.FC = () => {
                     {allocationFormData[account.id]?.newAllocation && (
                       <div className="mt-2 p-2 bg-blue-50 rounded">
                         <p className="text-sm text-blue-700">
-                          Difference: €
+                          New Balance: €
                           {(
-                            parseFloat(allocationFormData[account.id].newAllocation) - 
-                            parseFloat(allocationFormData[account.id].currentBalance)
+                            parseFloat(allocationFormData[account.id].currentBalance) + 
+                            parseFloat(allocationFormData[account.id].newAllocation)
                           ).toLocaleString()}
                         </p>
                       </div>
