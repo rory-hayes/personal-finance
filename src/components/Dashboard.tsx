@@ -15,10 +15,13 @@ import {
   CheckCircle,
   Clock,
   AlertTriangle,
-  X
+  X,
+  ChevronDown,
+  Banknote
 } from 'lucide-react';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, PieChart as RechartsPieChart, Cell } from 'recharts';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, PieChart as RechartsPieChart, Cell, Pie } from 'recharts';
 import { useFinanceData } from '../hooks/useFinanceData';
+import { Account, VestingSchedule } from '../types';
 
 const Dashboard: React.FC = () => {
   const { 
@@ -35,10 +38,47 @@ const Dashboard: React.FC = () => {
     monthlySavings, 
     savingsRate, 
     insights,
-    monthlyAllocations
+    monthlyAllocations,
+    addVestingSchedule,
+    addMonthlyAllocation,
+    updateAccount
   } = useFinanceData();
 
-  // Generate monthly account data for stacked chart
+  // State for modals
+  const [showVestingModal, setShowVestingModal] = useState(false);
+  const [showAllocationModal, setShowAllocationModal] = useState(false);
+  const [selectedVestingYear, setSelectedVestingYear] = useState(new Date().getFullYear());
+
+  // State for forms
+  const [vestingFormData, setVestingFormData] = useState({
+    userId: users[0]?.id || '',
+    monthlyAmount: '',
+    startDate: '',
+    endDate: '',
+    description: '',
+    cliffAmount: '',
+    cliffPeriod: '6'
+  });
+
+  const [allocationFormData, setAllocationFormData] = useState(
+    accounts.reduce((acc: Record<string, { currentBalance: string; newAllocation: string }>, account: Account) => ({
+      ...acc,
+      [account.id]: { currentBalance: account.balance.toString(), newAllocation: '' }
+    }), {} as Record<string, { currentBalance: string; newAllocation: string }>)
+  );
+
+  // Update allocation form when accounts change
+  React.useEffect(() => {
+    setAllocationFormData(accounts.reduce((acc: Record<string, { currentBalance: string; newAllocation: string }>, account: Account) => ({
+      ...acc,
+      [account.id]: { 
+        currentBalance: account.balance.toString(), 
+        newAllocation: allocationFormData[account.id]?.newAllocation || '' 
+      }
+    }), {} as Record<string, { currentBalance: string; newAllocation: string }>));
+  }, [accounts]);
+
+  // Generate monthly account data based on actual monthly allocations
   const monthlyAccountData = useMemo(() => {
     const months = [];
     const currentDate = new Date();
@@ -49,7 +89,9 @@ const Dashboard: React.FC = () => {
       const monthKey = date.toISOString().slice(0, 7);
       const monthName = date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
       
-      // Calculate account balances for this month (simplified - in real app would use historical data)
+      // Find allocation for this month
+      const monthAllocation = monthlyAllocations.find((alloc: any) => alloc.month === monthKey);
+      
       const monthData = {
         month: monthName,
         monthKey,
@@ -60,9 +102,33 @@ const Dashboard: React.FC = () => {
         other: 0
       };
       
-      // For current month, use actual account balances
-      if (i === 0) {
-        accounts.forEach(account => {
+              if (monthAllocation) {
+          // Use historical allocation data
+          accounts.forEach((account: Account) => {
+            const allocation = monthAllocation.allocations[account.id];
+            if (allocation) {
+              switch (account.type) {
+                case 'main':
+                  monthData.main += allocation;
+                  break;
+                case 'savings':
+                  monthData.savings += allocation;
+                  break;
+                case 'investment':
+                  monthData.investment += allocation;
+                  break;
+                case 'retirement':
+                  monthData.retirement += allocation;
+                  break;
+                default:
+                  monthData.other += allocation;
+                  break;
+              }
+            }
+          });
+        } else if (i === 0) {
+          // For current month with no allocation, use current balances
+          accounts.forEach((account: Account) => {
           switch (account.type) {
             case 'main':
               monthData.main += account.balance;
@@ -81,21 +147,82 @@ const Dashboard: React.FC = () => {
               break;
           }
         });
-      } else {
-        // For past months, simulate data (in real app, this would come from historical records)
-        const baseAmount = totalAccountBalance * (0.7 + (i * 0.05));
-        monthData.main = baseAmount * 0.4;
-        monthData.savings = baseAmount * 0.3;
-        monthData.investment = baseAmount * 0.2;
-        monthData.retirement = baseAmount * 0.08;
-        monthData.other = baseAmount * 0.02;
       }
+      // For past months without allocation data, we show 0 (no dummy data)
       
       months.push(monthData);
     }
     
     return months;
-  }, [accounts, totalAccountBalance]);
+  }, [accounts, monthlyAllocations]);
+
+  // Generate vesting data for charts
+  const vestingChartData = useMemo(() => {
+    const months = [];
+    const currentDate = new Date();
+    
+    // Generate 12 months of data for selected year
+    for (let i = 0; i < 12; i++) {
+      const date = new Date(selectedVestingYear, i, 1);
+      const monthKey = date.toISOString().slice(0, 7);
+      const monthName = date.toLocaleDateString('en-US', { month: 'short' });
+      
+      let totalVesting = 0;
+      let netWorth = totalAssetValue; // Base net worth
+      
+      // Calculate vesting for this month
+      vestingSchedules.forEach(schedule => {
+        const startDate = new Date(schedule.startDate);
+        const endDate = new Date(schedule.endDate);
+        
+        // Check if this month falls within the vesting period
+        if (date >= startDate && date <= endDate) {
+          totalVesting += schedule.monthlyAmount;
+          
+          // Add cliff amount if applicable
+          const monthsVested = Math.floor((date.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24 * 30));
+          if (schedule.cliffAmount && schedule.cliffPeriod && monthsVested === schedule.cliffPeriod) {
+            totalVesting += schedule.cliffAmount;
+          }
+        }
+      });
+      
+      // Calculate accumulated net worth (simplified)
+      if (date <= currentDate) {
+        const monthsFromStart = (date.getFullYear() - currentDate.getFullYear()) * 12 + (date.getMonth() - currentDate.getMonth());
+        netWorth += monthsFromStart * (monthlySavings + totalVesting);
+      }
+      
+      months.push({
+        month: monthName,
+        vesting: totalVesting,
+        netWorth: Math.max(netWorth, totalAssetValue),
+        total: totalVesting + Math.max(netWorth, totalAssetValue)
+      });
+    }
+    
+    return months;
+  }, [vestingSchedules, selectedVestingYear, totalAssetValue, monthlySavings]);
+
+  // Available years for vesting dropdown
+  const availableYears = useMemo(() => {
+    const currentYear = new Date().getFullYear();
+    const years = [currentYear - 1, currentYear, currentYear + 1, currentYear + 2];
+    
+    // Add years from vesting schedules
+    vestingSchedules.forEach(schedule => {
+      const startYear = new Date(schedule.startDate).getFullYear();
+      const endYear = new Date(schedule.endDate).getFullYear();
+      
+      for (let year = startYear; year <= endYear; year++) {
+        if (!years.includes(year)) {
+          years.push(year);
+        }
+      }
+    });
+    
+    return years.sort();
+  }, [vestingSchedules]);
 
   // Expense trend data (last 6 months)
   const expenseData = useMemo(() => {
@@ -141,6 +268,91 @@ const Dashboard: React.FC = () => {
     }));
   }, [assets]);
 
+  // Handle vesting form submission
+  const handleVestingSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    const monthlyAmount = parseFloat(vestingFormData.monthlyAmount);
+    const cliffAmount = vestingFormData.cliffAmount ? parseFloat(vestingFormData.cliffAmount) : undefined;
+    
+    if (isNaN(monthlyAmount) || monthlyAmount <= 0) {
+      alert('Please enter a valid monthly amount');
+      return;
+    }
+    
+    if (!vestingFormData.startDate || !vestingFormData.endDate) {
+      alert('Please select start and end dates');
+      return;
+    }
+    
+    if (new Date(vestingFormData.startDate) >= new Date(vestingFormData.endDate)) {
+      alert('End date must be after start date');
+      return;
+    }
+
+    await addVestingSchedule({
+      userId: vestingFormData.userId,
+      monthlyAmount,
+      startDate: vestingFormData.startDate,
+      endDate: vestingFormData.endDate,
+      description: vestingFormData.description,
+      cliffAmount,
+      cliffPeriod: cliffAmount ? parseInt(vestingFormData.cliffPeriod) : undefined
+    });
+
+    setVestingFormData({
+      userId: users[0]?.id || '',
+      monthlyAmount: '',
+      startDate: '',
+      endDate: '',
+      description: '',
+      cliffAmount: '',
+      cliffPeriod: '6'
+    });
+    setShowVestingModal(false);
+  };
+
+  // Handle monthly allocation submission
+  const handleAllocationSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    const currentMonth = new Date().toISOString().slice(0, 7);
+    const allocations: Record<string, number> = {};
+    let totalAllocated = 0;
+    
+    // Validate and calculate allocations
+    for (const accountId in allocationFormData) {
+      const allocation = parseFloat(allocationFormData[accountId].newAllocation);
+      if (!isNaN(allocation) && allocation > 0) {
+        allocations[accountId] = allocation;
+        totalAllocated += allocation;
+        
+        // Update the account balance
+        await updateAccount(accountId, { balance: allocation });
+      }
+    }
+    
+    if (totalAllocated === 0) {
+      alert('Please allocate amounts to at least one account');
+      return;
+    }
+    
+    // Save monthly allocation
+    await addMonthlyAllocation({
+      month: currentMonth,
+      totalAmount: totalAllocated,
+      allocations,
+      timestamp: new Date().toISOString()
+    });
+    
+    // Reset form
+    setAllocationFormData(accounts.reduce((acc, account) => ({
+      ...acc,
+      [account.id]: { currentBalance: allocations[account.id]?.toString() || account.balance.toString(), newAllocation: '' }
+    }), {}));
+    setShowAllocationModal(false);
+  };
+
   const getCategoryIcon = (category: string) => {
     switch (category.toLowerCase()) {
       case 'real estate':
@@ -174,11 +386,20 @@ const Dashboard: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">Financial Dashboard</h1>
-        <p className="text-gray-600">
-          Overview of your household's financial health and progress
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">Financial Dashboard</h1>
+          <p className="text-gray-600">
+            Overview of your household's financial health and progress
+          </p>
+        </div>
+        <button
+          onClick={() => setShowAllocationModal(true)}
+          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+        >
+          <Banknote className="h-4 w-4" />
+          Monthly Allocation
+        </button>
       </div>
 
       {/* Key Metrics */}
@@ -254,7 +475,7 @@ const Dashboard: React.FC = () => {
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-semibold text-gray-900">Financial Goals</h3>
             <button
-              onClick={() => window.dispatchEvent(new CustomEvent('openGoalForm'))}
+              onClick={() => window.dispatchEvent(new CustomEvent('switchToGoals'))}
               className="p-2 text-gray-400 hover:text-blue-600 transition-colors"
             >
               <Plus className="h-5 w-5" />
@@ -309,7 +530,7 @@ const Dashboard: React.FC = () => {
               <Target className="h-12 w-12 text-gray-400 mx-auto mb-3" />
               <p className="text-gray-500 text-sm mb-3">No goals set yet</p>
               <button
-                onClick={() => window.dispatchEvent(new CustomEvent('openGoalForm'))}
+                onClick={() => window.dispatchEvent(new CustomEvent('switchToGoals'))}
                 className="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700"
               >
                 Set Your First Goal
@@ -508,94 +729,143 @@ const Dashboard: React.FC = () => {
             <h3 className="text-lg font-semibold text-gray-900">Share Vesting Tracker</h3>
             <p className="text-sm text-gray-600">Track your equity vesting schedules and upcoming payments</p>
           </div>
-          <button
-            onClick={() => window.dispatchEvent(new CustomEvent('openVestingForm'))}
-            className="p-2 text-gray-400 hover:text-blue-600 transition-colors"
-          >
-            <Plus className="h-5 w-5" />
-          </button>
+          <div className="flex items-center gap-3">
+            {availableYears.length > 1 && (
+              <div className="relative">
+                <select
+                  value={selectedVestingYear}
+                  onChange={(e) => setSelectedVestingYear(parseInt(e.target.value))}
+                  className="appearance-none bg-white border border-gray-300 rounded-lg px-3 py-2 pr-8 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  {availableYears.map(year => (
+                    <option key={year} value={year}>{year}</option>
+                  ))}
+                </select>
+                <ChevronDown className="absolute right-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
+              </div>
+            )}
+            <button
+              onClick={() => setShowVestingModal(true)}
+              className="p-2 text-gray-400 hover:text-blue-600 transition-colors"
+            >
+              <Plus className="h-5 w-5" />
+            </button>
+          </div>
         </div>
         
         {vestingSchedules.length > 0 ? (
-          <div className="space-y-4">
-            {vestingSchedules.slice(0, 3).map((schedule) => {
-              const startDate = new Date(schedule.startDate);
-              const endDate = new Date(schedule.endDate);
-              const currentDate = new Date();
-              const totalMonths = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24 * 30));
-              const vestedMonths = Math.max(0, Math.ceil((currentDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24 * 30)));
-              const progressPercentage = Math.min((vestedMonths / totalMonths) * 100, 100);
-              const totalVested = Math.min(vestedMonths * schedule.monthlyAmount, totalMonths * schedule.monthlyAmount);
-              const totalValue = totalMonths * schedule.monthlyAmount + (schedule.cliffAmount || 0);
-              
-              // Check if cliff period has passed
-              const cliffMonths = schedule.cliffPeriod || 0;
-              const cliffPassed = vestedMonths >= cliffMonths;
-              const cliffAmount = cliffPassed ? (schedule.cliffAmount || 0) : 0;
-              
-              return (
-                <div key={schedule.id} className="p-4 bg-gray-50 rounded-lg">
-                  <div className="flex items-center justify-between mb-3">
-                    <div>
-                      <h4 className="font-medium text-gray-900">{schedule.description || 'Vesting Schedule'}</h4>
-                      <p className="text-sm text-gray-600">
-                        €{schedule.monthlyAmount.toLocaleString()}/month
-                        {schedule.cliffAmount && (
-                          <span className="ml-2">
-                            + €{schedule.cliffAmount.toLocaleString()} cliff {cliffPassed ? '(paid)' : `(${cliffMonths}mo)`}
-                          </span>
-                        )}
-                      </p>
+          <div className="space-y-6">
+            {/* Vesting Schedule List */}
+            <div className="space-y-4">
+              {vestingSchedules.slice(0, 3).map((schedule) => {
+                const startDate = new Date(schedule.startDate);
+                const endDate = new Date(schedule.endDate);
+                const currentDate = new Date();
+                const totalMonths = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24 * 30));
+                const vestedMonths = Math.max(0, Math.ceil((currentDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24 * 30)));
+                const progressPercentage = Math.min((vestedMonths / totalMonths) * 100, 100);
+                const totalVested = Math.min(vestedMonths * schedule.monthlyAmount, totalMonths * schedule.monthlyAmount);
+                const totalValue = totalMonths * schedule.monthlyAmount + (schedule.cliffAmount || 0);
+                
+                // Check if cliff period has passed
+                const cliffMonths = schedule.cliffPeriod || 0;
+                const cliffPassed = vestedMonths >= cliffMonths;
+                const cliffAmount = cliffPassed ? (schedule.cliffAmount || 0) : 0;
+                
+                return (
+                  <div key={schedule.id} className="p-4 bg-gray-50 rounded-lg">
+                    <div className="flex items-center justify-between mb-3">
+                      <div>
+                        <h4 className="font-medium text-gray-900">{schedule.description || 'Vesting Schedule'}</h4>
+                        <p className="text-sm text-gray-600">
+                          €{schedule.monthlyAmount.toLocaleString()}/month
+                          {schedule.cliffAmount && (
+                            <span className="ml-2">
+                              + €{schedule.cliffAmount.toLocaleString()} cliff {cliffPassed ? '(paid)' : `(${cliffMonths}mo)`}
+                            </span>
+                          )}
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <p className="font-semibold text-gray-900">€{(totalVested + cliffAmount).toLocaleString()}</p>
+                        <p className="text-xs text-gray-500">of €{totalValue.toLocaleString()}</p>
+                      </div>
                     </div>
-                    <div className="text-right">
-                      <p className="font-semibold text-gray-900">€{(totalVested + cliffAmount).toLocaleString()}</p>
-                      <p className="text-xs text-gray-500">of €{totalValue.toLocaleString()}</p>
+                    
+                    <div className="w-full bg-gray-200 rounded-full h-2 mb-2">
+                      <div 
+                        className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                        style={{ width: `${progressPercentage}%` }}
+                      />
+                    </div>
+                    
+                    <div className="flex justify-between text-xs text-gray-600">
+                      <span>{vestedMonths} of {totalMonths} months</span>
+                      <span>{progressPercentage.toFixed(1)}% vested</span>
+                    </div>
+                    
+                    <div className="mt-2 text-xs text-gray-500">
+                      {currentDate < startDate ? (
+                        <span>Starts {startDate.toLocaleDateString()}</span>
+                      ) : currentDate > endDate ? (
+                        <span className="text-green-600">Fully vested</span>
+                      ) : (
+                        <span>Ends {endDate.toLocaleDateString()}</span>
+                      )}
                     </div>
                   </div>
-                  
-                  <div className="w-full bg-gray-200 rounded-full h-2 mb-2">
-                    <div 
-                      className="bg-blue-600 h-2 rounded-full transition-all duration-300"
-                      style={{ width: `${progressPercentage}%` }}
-                    />
-                  </div>
-                  
-                  <div className="flex justify-between text-xs text-gray-600">
-                    <span>{vestedMonths} of {totalMonths} months</span>
-                    <span>{progressPercentage.toFixed(1)}% vested</span>
-                  </div>
-                  
-                  <div className="mt-2 text-xs text-gray-500">
-                    {currentDate < startDate ? (
-                      <span>Starts {startDate.toLocaleDateString()}</span>
-                    ) : currentDate > endDate ? (
-                      <span className="text-green-600">Fully vested</span>
-                    ) : (
-                      <span>Ends {endDate.toLocaleDateString()}</span>
-                    )}
-                  </div>
+                );
+              })}
+              
+              {vestingSchedules.length > 3 && (
+                <div className="text-center pt-2">
+                  <button
+                    onClick={() => window.dispatchEvent(new CustomEvent('switchToUsers'))}
+                    className="text-sm text-blue-600 hover:text-blue-700 flex items-center gap-1 mx-auto"
+                  >
+                    View all {vestingSchedules.length} schedules
+                    <ArrowRight className="h-3 w-3" />
+                  </button>
                 </div>
-              );
-            })}
-            
-            {vestingSchedules.length > 3 && (
-              <div className="text-center pt-2">
-                <button
-                  onClick={() => window.dispatchEvent(new CustomEvent('switchToUsers'))}
-                  className="text-sm text-blue-600 hover:text-blue-700 flex items-center gap-1 mx-auto"
-                >
-                  View all {vestingSchedules.length} schedules
-                  <ArrowRight className="h-3 w-3" />
-                </button>
+              )}
+            </div>
+
+            {/* Vesting Chart */}
+            <div>
+              <h4 className="text-md font-medium text-gray-900 mb-4">Vesting & Net Worth Progress ({selectedVestingYear})</h4>
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={vestingChartData}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="month" />
+                  <YAxis />
+                  <Tooltip 
+                    formatter={(value, name) => [`€${Number(value).toLocaleString()}`, name]}
+                    labelFormatter={(label) => `${label} ${selectedVestingYear}`}
+                  />
+                  <Bar dataKey="vesting" stackId="a" fill="#10B981" name="Vesting Amount" />
+                  <Bar dataKey="netWorth" stackId="a" fill="#3B82F6" name="Net Worth" />
+                </BarChart>
+              </ResponsiveContainer>
+              
+              {/* Chart Legend */}
+              <div className="flex gap-4 mt-4 text-sm">
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 bg-green-500 rounded"></div>
+                  <span>Monthly Vesting</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 bg-blue-500 rounded"></div>
+                  <span>Net Worth</span>
+                </div>
               </div>
-            )}
+            </div>
           </div>
         ) : (
           <div className="text-center py-8">
             <TrendingUp className="h-12 w-12 text-gray-400 mx-auto mb-3" />
             <p className="text-gray-500 text-sm mb-3">No vesting schedules tracked yet</p>
             <button
-              onClick={() => window.dispatchEvent(new CustomEvent('openVestingForm'))}
+              onClick={() => setShowVestingModal(true)}
               className="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700"
             >
               Add Vesting Schedule
@@ -624,7 +894,7 @@ const Dashboard: React.FC = () => {
           </button>
           
           <button
-            onClick={() => window.dispatchEvent(new CustomEvent('openGoalForm'))}
+            onClick={() => window.dispatchEvent(new CustomEvent('switchToGoals'))}
             className="p-4 bg-white rounded-lg border border-blue-200 hover:border-blue-300 transition-colors text-left"
           >
             <div className="flex items-center gap-3">
@@ -654,6 +924,250 @@ const Dashboard: React.FC = () => {
           </button>
         </div>
       </div>
+
+      {/* Vesting Modal */}
+      {showVestingModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6 border-b border-gray-200">
+              <div className="flex items-center justify-between">
+                <h2 className="text-xl font-bold text-gray-900">Add Vesting Schedule</h2>
+                <button
+                  onClick={() => setShowVestingModal(false)}
+                  className="p-2 text-gray-400 hover:text-gray-600"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+            </div>
+            <form onSubmit={handleVestingSubmit} className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  User
+                </label>
+                <select
+                  value={vestingFormData.userId}
+                  onChange={(e) => setVestingFormData(prev => ({ ...prev, userId: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  required
+                >
+                  {users.map(user => (
+                    <option key={user.id} value={user.id}>{user.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Monthly Amount (€)
+                </label>
+                <input
+                  type="number"
+                  value={vestingFormData.monthlyAmount}
+                  onChange={(e) => setVestingFormData(prev => ({ ...prev, monthlyAmount: e.target.value }))}
+                  placeholder="e.g., 5000"
+                  min="0"
+                  step="0.01"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  required
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Start Date
+                  </label>
+                  <input
+                    type="date"
+                    value={vestingFormData.startDate}
+                    onChange={(e) => setVestingFormData(prev => ({ ...prev, startDate: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    End Date
+                  </label>
+                  <input
+                    type="date"
+                    value={vestingFormData.endDate}
+                    onChange={(e) => setVestingFormData(prev => ({ ...prev, endDate: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Description
+                </label>
+                <input
+                  type="text"
+                  value={vestingFormData.description}
+                  onChange={(e) => setVestingFormData(prev => ({ ...prev, description: e.target.value }))}
+                  placeholder="e.g., Company Stock Options"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Cliff Amount (€) - Optional
+                  </label>
+                  <input
+                    type="number"
+                    value={vestingFormData.cliffAmount}
+                    onChange={(e) => setVestingFormData(prev => ({ ...prev, cliffAmount: e.target.value }))}
+                    placeholder="e.g., 50000"
+                    min="0"
+                    step="0.01"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Cliff Period (months)
+                  </label>
+                  <select
+                    value={vestingFormData.cliffPeriod}
+                    onChange={(e) => setVestingFormData(prev => ({ ...prev, cliffPeriod: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    disabled={!vestingFormData.cliffAmount}
+                  >
+                    <option value="6">6 months</option>
+                    <option value="12">12 months</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="flex gap-3 pt-4">
+                <button
+                  type="submit"
+                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                >
+                  Add Vesting Schedule
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowVestingModal(false)}
+                  className="px-4 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Monthly Allocation Modal */}
+      {showAllocationModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6 border-b border-gray-200">
+              <div className="flex items-center justify-between">
+                <h2 className="text-xl font-bold text-gray-900">Monthly Allocation</h2>
+                <button
+                  onClick={() => setShowAllocationModal(false)}
+                  className="p-2 text-gray-400 hover:text-gray-600"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+              <p className="text-sm text-gray-600 mt-1">
+                Allocate this month's income across your accounts
+              </p>
+            </div>
+            <form onSubmit={handleAllocationSubmit} className="p-6">
+              <div className="space-y-4 mb-6">
+                {accounts.map((account) => (
+                  <div key={account.id} className="p-4 border border-gray-200 rounded-lg">
+                    <div className="flex items-center justify-between mb-3">
+                      <div>
+                        <h4 className="font-medium text-gray-900">{account.name}</h4>
+                        <p className="text-sm text-gray-600 capitalize">{account.type} Account</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-sm text-gray-600">Current Balance</p>
+                        <p className="font-semibold text-gray-900">€{account.balance.toLocaleString()}</p>
+                      </div>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Current Balance (€)
+                        </label>
+                        <input
+                          type="number"
+                          value={allocationFormData[account.id]?.currentBalance || ''}
+                          readOnly
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-600"
+                        />
+                      </div>
+                      
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          New Total Amount (€)
+                        </label>
+                        <input
+                          type="number"
+                          value={allocationFormData[account.id]?.newAllocation || ''}
+                          onChange={(e) => setAllocationFormData(prev => ({
+                            ...prev,
+                            [account.id]: {
+                              ...prev[account.id],
+                              newAllocation: e.target.value
+                            }
+                          }))}
+                          placeholder="Enter new total"
+                          min="0"
+                          step="0.01"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+                    </div>
+                    
+                    {allocationFormData[account.id]?.newAllocation && (
+                      <div className="mt-2 p-2 bg-blue-50 rounded">
+                        <p className="text-sm text-blue-700">
+                          Difference: €
+                          {(
+                            parseFloat(allocationFormData[account.id].newAllocation) - 
+                            parseFloat(allocationFormData[account.id].currentBalance)
+                          ).toLocaleString()}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              <div className="flex gap-3">
+                <button
+                  type="submit"
+                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                >
+                  Save Monthly Allocation
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowAllocationModal(false)}
+                  className="px-4 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
