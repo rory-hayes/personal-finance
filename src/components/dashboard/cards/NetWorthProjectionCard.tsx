@@ -162,25 +162,32 @@ const NetWorthProjectionCard: React.FC<NetWorthProjectionCardProps> = ({ card, f
     }
 
     // Calculate key metrics
-    const finalNetWorth = projections[projections.length - 1].totalNetWorth;
+    const finalNetWorth = projections[projections.length - 1]?.totalNetWorth || currentNetWorth;
     const totalGrowth = finalNetWorth - currentNetWorth;
-    const annualizedGrowthRate = projectionYears > 0 ? 
+    const annualizedGrowthRate = projectionYears > 0 && currentNetWorth > 0 ? 
       Math.pow(finalNetWorth / currentNetWorth, 1 / projectionYears) - 1 : 0;
 
     // Find milestone years
-    const millionaireMilestone = projections.find(p => p.totalNetWorth >= 1000000);
-    const doubleNetWorthMilestone = projections.find(p => p.totalNetWorth >= currentNetWorth * 2);
+    const millionaireMilestone = projections.find(p => p && p.totalNetWorth >= 1000000);
+    const doubleNetWorthMilestone = currentNetWorth > 0 
+      ? projections.find(p => p && p.totalNetWorth >= currentNetWorth * 2)
+      : null;
 
     // Calculate largest growth drivers
     const finalYear = projections[projections.length - 1];
-    const growthDrivers = Object.entries(finalYear)
-      .filter(([key]) => !['year', 'fullDate', 'totalNetWorth', 'isCurrentYear'].includes(key))
-      .map(([key, value]) => ({
-        category: key,
-        value: value as number,
-        percentage: ((value as number) / finalYear.totalNetWorth) * 100
-      }))
-      .sort((a, b) => b.value - a.value);
+    const growthDrivers = finalYear && finalYear.totalNetWorth > 0 
+      ? Object.entries(finalYear)
+          .filter(([key]) => !['year', 'fullDate', 'totalNetWorth', 'isCurrentYear'].includes(key))
+          .map(([key, value]) => {
+            const numValue = Number(value) || 0;
+            return {
+              category: key,
+              value: numValue,
+              percentage: (numValue / finalYear.totalNetWorth) * 100
+            };
+          })
+          .sort((a, b) => b.value - a.value)
+      : [];
 
     return {
       projections,
@@ -248,8 +255,14 @@ const NetWorthProjectionCard: React.FC<NetWorthProjectionCardProps> = ({ card, f
         <div className="mt-2">
           <p className="text-xs font-medium text-gray-700 mb-1">Top Growth Driver</p>
           <div className="text-xs text-gray-600">
-                         {projectionData.growthDrivers[0]?.category.replace(/([A-Z])/g, ' $1').replace(/^./, (str: string) => str.toUpperCase())}
-            : {projectionData.growthDrivers[0]?.percentage.toFixed(1)}%
+            {projectionData.growthDrivers?.[0] ? (
+              <>
+                {projectionData.growthDrivers[0].category.replace(/([A-Z])/g, ' $1').replace(/^./, (str: string) => str.toUpperCase())}
+                : {projectionData.growthDrivers[0].percentage.toFixed(1)}%
+              </>
+            ) : (
+              'Not enough data'
+            )}
           </div>
         </div>
       </div>
