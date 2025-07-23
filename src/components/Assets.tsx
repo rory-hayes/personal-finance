@@ -26,7 +26,7 @@ const Assets: React.FC = () => {
     return cat || assetCategories[assetCategories.length - 1];
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     const value = parseFloat(formData.value);
@@ -41,15 +41,22 @@ const Assets: React.FC = () => {
       value: value,
     };
 
-    if (editingAsset) {
-      updateAsset(editingAsset.id, assetData);
-      setEditingAsset(null);
-    } else {
-      addAsset(assetData);
-    }
+    try {
+      if (editingAsset) {
+        await updateAsset(editingAsset.id, assetData);
+        alert('Asset updated successfully!');
+        setEditingAsset(null);
+      } else {
+        await addAsset(assetData);
+        alert('Asset added successfully!');
+      }
 
-    setFormData({ name: '', category: 'Other', value: '' });
-    setShowAddForm(false);
+      setFormData({ name: '', category: 'Other', value: '' });
+      setShowAddForm(false);
+    } catch (error) {
+      console.error('Error saving asset:', error);
+      alert('Failed to save asset. Please try again.');
+    }
   };
 
   const handleEdit = (asset: Asset) => {

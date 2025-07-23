@@ -462,8 +462,11 @@ export const useFinanceData = () => {
 
       setAssets(prev => [newAsset, ...prev]);
       await updateMonthlySummary();
+
+      console.log('Asset added successfully:', newAsset);
     } catch (error) {
       console.error('Error adding asset:', error);
+      throw error; // Re-throw so UI can handle the error
     }
   }, [user]);
 
@@ -482,8 +485,20 @@ export const useFinanceData = () => {
         .eq('id', id);
 
       if (error) throw error;
+
+      // Update local state
+      setAssets(prev => prev.map(asset => 
+        asset.id === id ? { ...asset, ...updates } : asset
+      ));
+
+      // Reload data to ensure consistency
+      await loadAssets();
+      await updateMonthlySummary();
+
+      console.log('Asset updated successfully:', id);
     } catch (error) {
       console.error('Error updating asset:', error);
+      throw error; // Re-throw so UI can handle the error
     }
   }, [user]);
 
@@ -497,8 +512,17 @@ export const useFinanceData = () => {
         .eq('id', id);
 
       if (error) throw error;
+
+      // Update local state
+      setAssets(prev => prev.filter(asset => asset.id !== id));
+
+      // Update monthly summary since assets changed
+      await updateMonthlySummary();
+
+      console.log('Asset deleted successfully:', id);
     } catch (error) {
       console.error('Error deleting asset:', error);
+      throw error; // Re-throw so UI can handle the error
     }
   }, [user]);
 
@@ -533,8 +557,11 @@ export const useFinanceData = () => {
       };
 
       setGoals(prev => [newGoal, ...prev]);
+
+      console.log('Goal added successfully:', newGoal);
     } catch (error) {
       console.error('Error adding goal:', error);
+      throw error; // Re-throw so UI can handle the error
     }
   }, [user]);
 
@@ -555,8 +582,40 @@ export const useFinanceData = () => {
         .eq('id', id);
 
       if (error) throw error;
+
+      // Update local state
+      setGoals(prev => prev.map(goal => 
+        goal.id === id ? { ...goal, ...updates } : goal
+      ));
+
+      // Reload data to ensure consistency
+      await loadGoals();
+
+      console.log('Goal updated successfully:', id);
     } catch (error) {
       console.error('Error updating goal:', error);
+      throw error; // Re-throw so UI can handle the error
+    }
+  }, [user]);
+
+  const deleteGoal = useCallback(async (id: string) => {
+    if (!user) return;
+
+    try {
+      const { error } = await supabase
+        .from('goals')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+
+      // Update local state
+      setGoals(prev => prev.filter(goal => goal.id !== id));
+
+      console.log('Goal deleted successfully:', id);
+    } catch (error) {
+      console.error('Error deleting goal:', error);
+      throw error; // Re-throw so UI can handle the error
     }
   }, [user]);
 
@@ -579,7 +638,7 @@ export const useFinanceData = () => {
 
       if (error) throw error;
 
-      setAccounts(prev => [...prev, {
+      const newAccount = {
         id: data.id,
         name: data.name,
         type: data.type as Account['type'],
@@ -587,9 +646,14 @@ export const useFinanceData = () => {
         userId: data.user_id,
         color: data.color,
         lastUpdated: data.last_updated
-      }]);
+      };
+
+      setAccounts(prev => [...prev, newAccount]);
+
+      console.log('Account added successfully:', newAccount);
     } catch (error) {
       console.error('Error adding account:', error);
+      throw error; // Re-throw so UI can handle the error
     }
   }, [user, accounts.length]);
 
@@ -609,8 +673,44 @@ export const useFinanceData = () => {
         .eq('id', id);
 
       if (error) throw error;
+
+      // Update local state
+      setAccounts(prev => prev.map(account => 
+        account.id === id ? { 
+          ...account, 
+          ...updates,
+          lastUpdated: new Date().toISOString()
+        } : account
+      ));
+
+      // Reload data to ensure consistency
+      await loadAccounts();
+
+      console.log('Account updated successfully:', id);
     } catch (error) {
       console.error('Error updating account:', error);
+      throw error; // Re-throw so UI can handle the error
+    }
+  }, [user]);
+
+  const deleteAccount = useCallback(async (id: string) => {
+    if (!user) return;
+
+    try {
+      const { error } = await supabase
+        .from('accounts')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+
+      // Update local state
+      setAccounts(prev => prev.filter(account => account.id !== id));
+
+      console.log('Account deleted successfully:', id);
+    } catch (error) {
+      console.error('Error deleting account:', error);
+      throw error; // Re-throw so UI can handle the error
     }
   }, [user]);
 
@@ -965,8 +1065,10 @@ export const useFinanceData = () => {
     deleteAsset,
     addGoal,
     updateGoal,
+    deleteGoal,
     addAccount,
     updateAccount,
+    deleteAccount,
     allocateToAccount,
     addVestingSchedule,
     deleteVestingSchedule,

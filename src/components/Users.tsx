@@ -51,7 +51,7 @@ const Users: React.FC = () => {
     setShowAddForm(false);
   };
 
-  const handleAccountSubmit = (e: React.FormEvent) => {
+  const handleAccountSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     const balance = parseFloat(accountFormData.balance);
@@ -60,17 +60,23 @@ const Users: React.FC = () => {
       return;
     }
 
-    addAccount({
-      name: accountFormData.name.trim(),
-      type: accountFormData.type,
-      balance: balance,
-      userId: users[0]?.id,
-      color: '#3B82F6', // Will be overridden by the hook
-      lastUpdated: new Date().toISOString(),
-    });
+    try {
+      await addAccount({
+        name: accountFormData.name.trim(),
+        type: accountFormData.type,
+        balance: balance,
+        userId: users[0]?.id,
+        color: '#3B82F6', // Will be overridden by the hook
+        lastUpdated: new Date().toISOString(),
+      });
 
-    setAccountFormData({ name: '', type: 'checking', balance: '' });
-    setShowAccountForm(false);
+      setAccountFormData({ name: '', type: 'checking', balance: '' });
+      setShowAccountForm(false);
+      alert('Account added successfully!');
+    } catch (error) {
+      console.error('Error adding account:', error);
+      alert('Failed to add account. Please try again.');
+    }
   };
 
   const handleAllocationSubmit = (e: React.FormEvent) => {

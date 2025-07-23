@@ -25,7 +25,7 @@ const Goals: React.FC = () => {
     return () => window.removeEventListener('openGoalForm', handleOpenGoalForm);
   }, []);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     const targetAmount = parseFloat(formData.targetAmount);
@@ -54,21 +54,28 @@ const Goals: React.FC = () => {
       description: formData.description.trim() || undefined,
     };
 
-    if (editingGoal) {
-      updateGoal(editingGoal.id, goalData);
-      setEditingGoal(null);
-    } else {
-      addGoal(goalData);
-    }
+    try {
+      if (editingGoal) {
+        await updateGoal(editingGoal.id, goalData);
+        alert('Goal updated successfully!');
+        setEditingGoal(null);
+      } else {
+        await addGoal(goalData);
+        alert('Goal added successfully!');
+      }
 
-    setFormData({
-      name: '',
-      targetAmount: '',
-      currentAmount: '',
-      targetDate: '',
-      description: '',
-    });
-    setShowAddForm(false);
+      setFormData({
+        name: '',
+        targetAmount: '',
+        currentAmount: '',
+        targetDate: '',
+        description: '',
+      });
+      setShowAddForm(false);
+    } catch (error) {
+      console.error('Error saving goal:', error);
+      alert('Failed to save goal. Please try again.');
+    }
   };
 
   const handleEdit = (goal: Goal) => {

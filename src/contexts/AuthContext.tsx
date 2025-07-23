@@ -15,6 +15,11 @@ interface UserProfile {
   updated_at: string;
 }
 
+interface HouseholdMember {
+  name: string;
+  isMain: boolean;
+}
+
 interface AuthContextType {
   user: User | null;
   profile: UserProfile | null;
@@ -26,6 +31,7 @@ interface AuthContextType {
   updateProfile: (updates: Partial<UserProfile>) => Promise<{ error?: any }>;
   completeOnboarding: (data: { 
     household_size: number; 
+    household_members: HouseholdMember[];
     monthly_income: number;
     accounts?: Array<{ name: string; type: string; balance: string }>;
   }) => Promise<{ error?: any }>;
@@ -189,6 +195,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const completeOnboarding = async (data: { 
     household_size: number; 
+    household_members: HouseholdMember[];
     monthly_income: number;
     accounts?: Array<{ name: string; type: string; balance: string }>;
   }) => {
@@ -210,19 +217,29 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         return { error };
       }
 
-      // Also create initial user record in users table for compatibility
-      const { error: userError } = await supabase
-        .from('users')
-        .upsert({
-          id: user.id,
-          name: profile?.full_name || 'User',
-          monthly_income: data.monthly_income,
-          color: '#3B82F6',
-          auth_user_id: user.id,
-        });
+      // Create user records for all household members in the users table
+      if (data.household_members && data.household_members.length > 0) {
+        const colors = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#06B6D4', '#EC4899', '#F97316'];
+        
+        const usersToInsert = data.household_members.map((member, index) => ({
+          id: index === 0 ? user.id : `${user.id}-member-${index}`, // Main user gets auth ID, others get derived IDs
+          name: member.name.trim() || `Household Member ${index + 1}`,
+          monthly_income: index === 0 ? data.monthly_income : 0, // Only main user gets income initially
+          color: colors[index % colors.length],
+          auth_user_id: user.id, // All members linked to the main authenticated user
+        }));
 
-      if (userError) {
-        console.error('Error creating user record:', userError);
+        const { error: usersError } = await supabase
+          .from('users')
+          .upsert(usersToInsert, { 
+            onConflict: 'id',
+            ignoreDuplicates: false 
+          });
+
+        if (usersError) {
+          console.error('Error creating household member records:', usersError);
+          // Don't fail onboarding if user creation fails, but log it
+        }
       }
 
       // Create initial accounts if provided
@@ -232,7 +249,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         const accountsToInsert = data.accounts
           .filter(account => account.name.trim() && account.balance.trim())
           .map((account, index) => ({
-            user_id: user.id,
+            user_id: user.id, // Link accounts to the main authenticated user
             name: account.name.trim(),
             type: account.type,
             balance: parseFloat(account.balance) || 0,

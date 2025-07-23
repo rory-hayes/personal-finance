@@ -1,6 +1,11 @@
 import React, { useState } from 'react';
-import { Users, DollarSign, CheckCircle, ArrowRight, ArrowLeft, Wallet, CreditCard, PiggyBank } from 'lucide-react';
+import { Users, DollarSign, CheckCircle, ArrowRight, ArrowLeft, Wallet, CreditCard, PiggyBank, User } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
+
+interface HouseholdMember {
+  name: string;
+  isMain: boolean;
+}
 
 const OnboardingFlow: React.FC = () => {
   const { profile, completeOnboarding } = useAuth();
@@ -8,6 +13,7 @@ const OnboardingFlow: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     household_size: 1,
+    household_members: [{ name: '', isMain: true }] as HouseholdMember[], // Array of household member names
     monthly_income: '',
     accounts: [
       { name: '', type: 'checking', balance: '' },
@@ -23,16 +29,21 @@ const OnboardingFlow: React.FC = () => {
     },
     {
       id: 2,
-      title: 'Household Information',
-      subtitle: 'Tell us about your household',
+      title: 'Household Size',
+      subtitle: 'How many people are in your household?',
     },
     {
       id: 3,
+      title: 'Household Members',
+      subtitle: 'Tell us about the people in your household',
+    },
+    {
+      id: 4,
       title: 'Income Setup',
       subtitle: 'Set up your monthly income',
     },
     {
-      id: 4,
+      id: 5,
       title: 'Initial Accounts',
       subtitle: 'Add your main accounts to get started',
     },
@@ -48,6 +59,38 @@ const OnboardingFlow: React.FC = () => {
     if (currentStep > 1) {
       setCurrentStep(currentStep - 1);
     }
+  };
+
+  const updateHouseholdSize = (size: number) => {
+    const currentMembers = formData.household_members;
+    const newMembers = [];
+    
+    // Keep existing members up to the new size
+    for (let i = 0; i < size; i++) {
+      if (i < currentMembers.length) {
+        newMembers.push(currentMembers[i]);
+      } else {
+        newMembers.push({ 
+          name: i === 0 ? profile?.full_name || '' : '', 
+          isMain: i === 0 
+        });
+      }
+    }
+    
+    setFormData(prev => ({
+      ...prev,
+      household_size: size,
+      household_members: newMembers
+    }));
+  };
+
+  const updateMemberName = (index: number, name: string) => {
+    setFormData(prev => ({
+      ...prev,
+      household_members: prev.household_members.map((member, i) => 
+        i === index ? { ...member, name } : member
+      )
+    }));
   };
 
   const handleAccountChange = (index: number, field: string, value: string) => {
@@ -66,6 +109,7 @@ const OnboardingFlow: React.FC = () => {
     
     const { error } = await completeOnboarding({
       household_size: formData.household_size,
+      household_members: formData.household_members,
       monthly_income: monthlyIncome,
       accounts: formData.accounts,
     });
@@ -93,11 +137,16 @@ const OnboardingFlow: React.FC = () => {
         personalized insights and recommendations.
       </p>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 max-w-2xl mx-auto mb-8">
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 max-w-3xl mx-auto mb-8">
         <div className="text-center p-4 bg-gray-50 rounded-lg">
           <Users className="h-6 w-6 text-blue-600 mx-auto mb-2" />
           <p className="text-sm font-medium text-gray-900">Household</p>
           <p className="text-xs text-gray-600">Size & members</p>
+        </div>
+        <div className="text-center p-4 bg-gray-50 rounded-lg">
+          <User className="h-6 w-6 text-indigo-600 mx-auto mb-2" />
+          <p className="text-sm font-medium text-gray-900">Names</p>
+          <p className="text-xs text-gray-600">Member details</p>
         </div>
         <div className="text-center p-4 bg-gray-50 rounded-lg">
           <DollarSign className="h-6 w-6 text-green-600 mx-auto mb-2" />
@@ -133,7 +182,7 @@ const OnboardingFlow: React.FC = () => {
           <Users className="h-8 w-8 text-blue-600" />
         </div>
         <h2 className="text-2xl font-bold text-gray-900 mb-2">
-          Household Information
+          Household Size
         </h2>
         <p className="text-gray-600">
           How many people are in your household? This helps us calculate better recommendations.
@@ -150,7 +199,7 @@ const OnboardingFlow: React.FC = () => {
               <button
                 key={size}
                 type="button"
-                onClick={() => setFormData(prev => ({ ...prev, household_size: size }))}
+                onClick={() => updateHouseholdSize(size)}
                 className={`p-3 border rounded-lg text-center transition-colors ${
                   formData.household_size === size
                     ? 'border-blue-500 bg-blue-50 text-blue-700'
@@ -175,10 +224,7 @@ const OnboardingFlow: React.FC = () => {
                 min="1"
                 max="20"
                 value={formData.household_size}
-                onChange={(e) => setFormData(prev => ({ 
-                  ...prev, 
-                  household_size: parseInt(e.target.value) || 1 
-                }))}
+                onChange={(e) => updateHouseholdSize(parseInt(e.target.value) || 1)}
                 className="w-24 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
@@ -187,8 +233,8 @@ const OnboardingFlow: React.FC = () => {
 
         <div className="bg-blue-50 p-4 rounded-lg">
           <p className="text-sm text-blue-800">
-            <strong>Why we ask:</strong> Household size helps us calculate emergency fund 
-            recommendations and provide more accurate spending benchmarks.
+            <strong>Next step:</strong> We'll ask for the names of each household member to 
+            personalize budgets, goals, and vesting schedules.
           </p>
         </div>
       </div>
@@ -213,6 +259,73 @@ const OnboardingFlow: React.FC = () => {
   );
 
   const renderStep3 = () => (
+    <div className="max-w-md mx-auto">
+      <div className="text-center mb-8">
+        <div className="w-16 h-16 bg-indigo-100 rounded-full flex items-center justify-center mx-auto mb-4">
+          <User className="h-8 w-8 text-indigo-600" />
+        </div>
+        <h2 className="text-2xl font-bold text-gray-900 mb-2">
+          Household Members
+        </h2>
+        <p className="text-gray-600">
+          What are the names of the people in your household? This helps us create 
+          personalized budgets and track individual goals.
+        </p>
+      </div>
+
+      <div className="space-y-4">
+        {formData.household_members.map((member, index) => (
+          <div key={index} className="space-y-2">
+            <label className="block text-sm font-medium text-gray-700">
+              {index === 0 ? (
+                <span className="flex items-center gap-2">
+                  <CheckCircle className="h-4 w-4 text-green-600" />
+                  You (Primary Account Holder)
+                </span>
+              ) : (
+                `Household Member ${index + 1}`
+              )}
+            </label>
+            <input
+              type="text"
+              value={member.name}
+              onChange={(e) => updateMemberName(index, e.target.value)}
+              placeholder={index === 0 ? profile?.full_name || 'Your name' : `Member ${index + 1} name`}
+              className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              required
+            />
+          </div>
+        ))}
+
+        <div className="bg-indigo-50 p-4 rounded-lg">
+          <p className="text-sm text-indigo-800">
+            <strong>Why we collect this:</strong> Individual names help us create personalized 
+            vesting schedules, assign goals to specific family members, and track spending patterns.
+          </p>
+        </div>
+      </div>
+
+      <div className="flex gap-3 mt-8">
+        <button
+          onClick={handleBack}
+          className="flex-1 flex items-center justify-center gap-2 py-2.5 px-4 border border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50 transition-colors"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Back
+        </button>
+        <button
+          onClick={handleNext}
+          disabled={formData.household_members.some(member => !member.name.trim())}
+          className="flex-1 flex items-center justify-center gap-2 py-2.5 px-4 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          Continue
+          <ArrowRight className="h-4 w-4" />
+        </button>
+      </div>
+    </div>
+  );
+
+  const renderStep4 = () => (
     <div className="max-w-md mx-auto">
       <div className="text-center mb-8">
         <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -298,7 +411,7 @@ const OnboardingFlow: React.FC = () => {
     </div>
   );
 
-  const renderStep4 = () => (
+  const renderStep5 = () => (
     <div className="max-w-md mx-auto">
       <div className="text-center mb-8">
         <div className="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -425,6 +538,7 @@ const OnboardingFlow: React.FC = () => {
           {currentStep === 2 && renderStep2()}
           {currentStep === 3 && renderStep3()}
           {currentStep === 4 && renderStep4()}
+          {currentStep === 5 && renderStep5()}
         </div>
       </div>
     </div>

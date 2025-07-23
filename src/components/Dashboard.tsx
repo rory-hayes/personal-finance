@@ -79,22 +79,32 @@ const Dashboard: React.FC = () => {
       return;
     }
 
-    // Add each selected card to the database
-    for (const cardType of selectedCards) {
-      const definition = getCardDefinition(cardType);
-      if (definition) {
-        await addCardToConfig(cardType, definition.defaultSize);
+    try {
+      console.log('Adding selected cards to dashboard:', Array.from(selectedCards));
+      
+      // Add each selected card to the database
+      for (const cardType of selectedCards) {
+        const definition = getCardDefinition(cardType);
+        if (definition) {
+          await addCardToConfig(cardType, definition.defaultSize);
+          console.log('Successfully added card:', cardType);
+        }
       }
-    }
 
-    // Clear selection and close modal
-    setSelectedCards(new Set());
-    setShowAddCardModal(false);
+      // Clear selection and close modal
+      setSelectedCards(new Set());
+      setShowAddCardModal(false);
+      
+      console.log('All cards added successfully');
+    } catch (error) {
+      console.error('Error adding cards to dashboard:', error);
+      alert('Failed to add some cards to the dashboard. Please try again.');
+    }
   };
 
   // Check if card is already in dashboard
   const isCardInDashboard = (cardType: CardType): boolean => {
-    return currentConfig?.layoutConfig.cards.some(card => card.type === cardType) || false;
+    return currentCards.some(card => card.type === cardType);
   };
 
   // Legacy single-card add function (kept for compatibility)
