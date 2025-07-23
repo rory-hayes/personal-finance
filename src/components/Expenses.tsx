@@ -59,13 +59,13 @@ const Expenses: React.FC = () => {
         }
 
         if (transactions.length > 0) {
-          // Show transactions for review instead of adding directly
+          // Only set pending transactions for review - DO NOT save to database yet
           setPendingTransactions(transactions);
           setShowReviewModal(true);
           
           results.push({
             success: true,
-            message: `Found ${transactions.length} transactions in ${file.name}`,
+            message: `Found ${transactions.length} transactions ready for review`,
             transactionCount: transactions.length,
           });
         } else {
@@ -84,7 +84,7 @@ const Expenses: React.FC = () => {
 
     setUploadResults(results);
     setUploading(false);
-  }, [addTransaction, users]);
+  }, [users]); // Removed addTransaction dependency to prevent automatic calling
 
   const readFile = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {

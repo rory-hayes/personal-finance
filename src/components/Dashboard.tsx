@@ -22,7 +22,6 @@ import {
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, PieChart as RechartsPieChart, Cell, Pie } from 'recharts';
 import { useFinanceData } from '../hooks/useFinanceData';
 import { Account, VestingSchedule } from '../types';
-import Debug from './Debug';
 
 const Dashboard: React.FC = () => {
   const { 
@@ -229,7 +228,7 @@ const Dashboard: React.FC = () => {
     return years.sort();
   }, [vestingSchedules]);
 
-  // Expense trend data (last 6 months)
+  // Expense data by category for stacked bar chart (last 6 months)
   const expenseData = useMemo(() => {
     const months = [];
     const currentDate = new Date();
@@ -238,19 +237,46 @@ const Dashboard: React.FC = () => {
       const date = new Date(currentDate.getFullYear(), currentDate.getMonth() - i, 1);
       const monthName = date.toLocaleDateString('en-US', { month: 'short' });
       
-      // Filter transactions for this month
-      const monthTransactions = transactions.filter(t => {
+      // Filter transactions for this month (expenses only)
+      const monthTransactions = transactions.filter((t: any) => {
         const transactionDate = new Date(t.date);
         return transactionDate.getMonth() === date.getMonth() && 
                transactionDate.getFullYear() === date.getFullYear() &&
                t.amount < 0; // Only expenses
       });
       
-      const totalExpenses = monthTransactions.reduce((sum, t) => sum + Math.abs(t.amount), 0);
+      // Group expenses by category
+      const categoryTotals = monthTransactions.reduce((acc: any, t: any) => {
+        const category = t.category.toLowerCase();
+        const amount = Math.abs(t.amount);
+        
+        if (category.includes('groceries') || category.includes('grocery')) {
+          acc.groceries += amount;
+        } else if (category.includes('dining') || category.includes('restaurant')) {
+          acc.dining += amount;
+        } else if (category.includes('transportation') || category.includes('gas') || category.includes('fuel')) {
+          acc.transportation += amount;
+        } else if (category.includes('utilities') || category.includes('electric') || category.includes('water')) {
+          acc.utilities += amount;
+        } else if (category.includes('housing') || category.includes('rent') || category.includes('mortgage')) {
+          acc.housing += amount;
+        } else {
+          acc.other += amount;
+        }
+        
+        return acc;
+      }, {
+        groceries: 0,
+        dining: 0,
+        transportation: 0,
+        utilities: 0,
+        housing: 0,
+        other: 0
+      });
       
       months.push({
         month: monthName,
-        expenses: totalExpenses,
+        ...categoryTotals
       });
     }
     
@@ -393,7 +419,6 @@ const Dashboard: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      <Debug />
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -465,18 +490,54 @@ const Dashboard: React.FC = () => {
 
       {/* Charts Row */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Expense Trend */}
+        {/* Expense Categories - Stacked Bar Chart */}
         <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Expense Trend</h3>
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">Expense Categories</h3>
           <ResponsiveContainer width="100%" height={300}>
-            <LineChart data={expenseData}>
+            <BarChart data={expenseData}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="month" />
               <YAxis />
-              <Tooltip formatter={(value) => [`€${Number(value).toLocaleString()}`, 'Expenses']} />
-              <Line type="monotone" dataKey="expenses" stroke="#EF4444" strokeWidth={2} />
-            </LineChart>
+              <Tooltip 
+                formatter={(value, name) => [`€${Number(value).toLocaleString()}`, name]}
+                labelFormatter={(label) => `Month: ${label}`}
+              />
+              <Bar dataKey="groceries" stackId="a" fill="#10B981" name="Groceries" />
+              <Bar dataKey="dining" stackId="a" fill="#F59E0B" name="Dining" />
+              <Bar dataKey="transportation" stackId="a" fill="#3B82F6" name="Transportation" />
+              <Bar dataKey="utilities" stackId="a" fill="#8B5CF6" name="Utilities" />
+              <Bar dataKey="housing" stackId="a" fill="#EF4444" name="Housing" />
+              <Bar dataKey="other" stackId="a" fill="#6B7280" name="Other" />
+            </BarChart>
           </ResponsiveContainer>
+          
+          {/* Expense Legend */}
+          <div className="flex flex-wrap gap-4 mt-4 text-sm">
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 bg-green-500 rounded"></div>
+              <span>Groceries</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 bg-yellow-500 rounded"></div>
+              <span>Dining</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 bg-blue-500 rounded"></div>
+              <span>Transportation</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 bg-purple-500 rounded"></div>
+              <span>Utilities</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 bg-red-500 rounded"></div>
+              <span>Housing</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 bg-gray-500 rounded"></div>
+              <span>Other</span>
+            </div>
+          </div>
         </div>
 
         {/* Goals Card */}
