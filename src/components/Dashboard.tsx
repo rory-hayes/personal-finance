@@ -7,7 +7,8 @@ import {
   LayoutGrid,
   Eye,
   EyeOff,
-  X
+  X,
+  AlertTriangle
 } from 'lucide-react';
 import { useFinanceData } from '../hooks/useFinanceData';
 import { useDashboardConfig } from '../hooks/useDashboardConfig';
@@ -188,6 +189,86 @@ const Dashboard: React.FC = () => {
     }
   };
 
+  // Create default cards as fallback
+  const defaultCards = useMemo(() => [
+    {
+      id: 'default-emergency-fund',
+      type: 'emergency-fund' as CardType,
+      size: 'quarter' as CardSize,
+      position: { x: 0, y: 0, w: 1, h: 1 },
+      config: {
+        title: 'Emergency Fund',
+        chartType: 'bar',
+        timeRange: '6months',
+        visible: true
+      }
+    },
+    {
+      id: 'default-cash-flow',
+      type: 'cash-flow' as CardType,
+      size: 'half' as CardSize,
+      position: { x: 1, y: 0, w: 2, h: 1 },
+      config: {
+        title: 'Cash Flow Forecast',
+        chartType: 'line',
+        timeRange: '6months',
+        visible: true
+      }
+    },
+    {
+      id: 'default-income',
+      type: 'metric' as CardType,
+      size: 'quarter' as CardSize,
+      position: { x: 3, y: 0, w: 1, h: 1 },
+      config: {
+        title: 'Monthly Income',
+        chartType: 'number',
+        timeRange: 'current',
+        visible: true,
+        customSettings: { metric: 'income' }
+      }
+    },
+    {
+      id: 'default-expenses',
+      type: 'expense-categories' as CardType,
+      size: 'half' as CardSize,
+      position: { x: 0, y: 1, w: 2, h: 1 },
+      config: {
+        title: 'Expense Categories',
+        chartType: 'bar',
+        timeRange: 'current',
+        visible: true
+      }
+    },
+    {
+      id: 'default-goals',
+      type: 'goals' as CardType,
+      size: 'half' as CardSize,
+      position: { x: 2, y: 1, w: 2, h: 1 },
+      config: {
+        title: 'Financial Goals',
+        chartType: 'progress',
+        timeRange: 'current',
+        visible: true
+      }
+    },
+    {
+      id: 'default-vesting',
+      type: 'vesting' as CardType,
+      size: 'full' as CardSize,
+      position: { x: 0, y: 2, w: 4, h: 1 },
+      config: {
+        title: 'Share Vesting',
+        chartType: 'line',
+        timeRange: '12months',
+        visible: true
+      }
+    }
+  ], []);
+
+  // Use currentConfig if available, otherwise use default cards
+  const cardsToRender = currentConfig?.layoutConfig?.cards || defaultCards;
+
   if (loading) {
     return (
       <div className="p-8">
@@ -262,28 +343,39 @@ const Dashboard: React.FC = () => {
         </div>
       </div>
 
-      {/* Dashboard Grid */}
-      {currentConfig && (
-        <div className="grid grid-cols-4 gap-6 auto-rows-min">
-          {currentConfig.layoutConfig.cards.map((card) => (
-            <DashboardCard
-              key={card.id}
-              card={card}
-              editMode={editMode}
-              onResize={resizeCard}
-              onRemove={removeCard}
-              onConfigure={(cardId) => {
-                // TODO: Implement card configuration modal
-                console.log('Configure card:', cardId);
-              }}
-            >
-              {renderCardContent(card)}
-            </DashboardCard>
-          ))}
+      {/* Configuration Status Warning */}
+      {!currentConfig && (
+        <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="h-5 w-5 text-yellow-600" />
+            <p className="text-sm text-yellow-800">
+              <strong>Dashboard Configuration Issue:</strong> Using default layout. 
+              {' '}Apply the database migration to save custom layouts.
+            </p>
+          </div>
         </div>
       )}
 
-      {/* Empty State */}
+      {/* Dashboard Grid */}
+      <div className="grid grid-cols-4 gap-6 auto-rows-min">
+        {cardsToRender.map((card) => (
+          <DashboardCard
+            key={card.id}
+            card={card}
+            editMode={editMode && currentConfig !== null} // Only allow editing if config is loaded
+            onResize={currentConfig ? resizeCard : undefined}
+            onRemove={currentConfig ? removeCard : undefined}
+            onConfigure={currentConfig ? (cardId) => {
+              // TODO: Implement card configuration modal
+              console.log('Configure card:', cardId);
+            } : undefined}
+          >
+            {renderCardContent(card)}
+          </DashboardCard>
+        ))}
+      </div>
+
+      {/* Empty State - only show if config is loaded and empty */}
       {currentConfig && currentConfig.layoutConfig.cards.length === 0 && (
         <div className="text-center py-16">
           <LayoutGrid className="h-16 w-16 text-gray-400 mx-auto mb-4" />
