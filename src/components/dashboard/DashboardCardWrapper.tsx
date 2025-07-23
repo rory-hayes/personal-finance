@@ -1,6 +1,33 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { MoreVertical, X, Calendar, Trash2 } from 'lucide-react';
 
+// Import all card components
+import MonthlyIncomeCard from './cards/MonthlyIncomeCard';
+import MonthlySpendingCard from './cards/MonthlySpendingCard';
+import MonthlySavingsCard from './cards/MonthlySavingsCard';
+import NetWorthCard from './cards/NetWorthCard';
+import NetWorthGrowthCard from './cards/NetWorthGrowthCard';
+import CashFlowForecastCard from './cards/CashFlowForecastCard';
+import ExpenseCategoriesCard from './cards/ExpenseCategoriesCard';
+import TopSpendingCard from './cards/TopSpendingCard';
+import BudgetTrackingCard from './cards/BudgetTrackingCard';
+import FinancialGoalsCard from './cards/FinancialGoalsCard';
+import FinancialHealthCard from './cards/FinancialHealthCard';
+import AccountProgressCard from './cards/AccountProgressCard';
+import AssetsOverviewCard from './cards/AssetsOverviewCard';
+import AssetAllocationCard from './cards/AssetAllocationCard';
+import VestingSchedulesCard from './cards/VestingSchedulesCard';
+import RecentTransactionsCard from './cards/RecentTransactionsCard';
+import GoalTimelineCard from './cards/GoalTimelineCard';
+import SubscriptionTrackerCard from './cards/SubscriptionTrackerCard';
+import BonusTrackerCard from './cards/BonusTrackerCard';
+import PeerBenchmarkingCard from './cards/PeerBenchmarkingCard';
+import HouseholdContributionsCard from './cards/HouseholdContributionsCard';
+import CashFlowInsightsCard from './cards/CashFlowInsightsCard';
+import AlertsRecommendationsCard from './cards/AlertsRecommendationsCard';
+import DashboardCustomizationCard from './cards/DashboardCustomizationCard';
+import PlaceholderCard from './cards/PlaceholderCard';
+
 interface DashboardCardWrapperProps {
   card: any;
   financeData: any;
@@ -88,145 +115,134 @@ const DashboardCardWrapper: React.FC<DashboardCardWrapperProps> = ({
   };
 
   const renderCardContent = () => {
-    // Import and render the appropriate card component based on card.type
+    // Render the appropriate card component based on card.type
     switch (card.type) {
       case 'monthly-income':
-        const MonthlyIncomeCard = require('./cards/MonthlyIncomeCard').default;
         return <MonthlyIncomeCard card={card} financeData={financeData} />;
       
       case 'monthly-spending':
-        const MonthlySpendingCard = require('./cards/MonthlySpendingCard').default;
         return <MonthlySpendingCard card={card} financeData={financeData} />;
       
       case 'monthly-savings':
-        const MonthlySavingsCard = require('./cards/MonthlySavingsCard').default;
         return <MonthlySavingsCard card={card} financeData={financeData} />;
       
       case 'net-worth':
-        const NetWorthCard = require('./cards/NetWorthCard').default;
         return <NetWorthCard card={card} financeData={financeData} />;
       
       case 'net-worth-growth':
-        const NetWorthGrowthCard = require('./cards/NetWorthGrowthCard').default;
         return <NetWorthGrowthCard card={card} financeData={financeData} />;
       
       case 'cash-flow-forecast':
-        const CashFlowForecastCard = require('./cards/CashFlowForecastCard').default;
         return <CashFlowForecastCard card={card} financeData={financeData} />;
       
       case 'expense-categories':
-        const ExpenseCategoriesCard = require('./cards/ExpenseCategoriesCard').default;
         return <ExpenseCategoriesCard card={card} financeData={financeData} />;
       
       case 'top-spending':
-        const TopSpendingCard = require('./cards/TopSpendingCard').default;
         return <TopSpendingCard card={card} financeData={financeData} />;
       
       case 'budget-tracking':
-        const BudgetTrackingCard = require('./cards/BudgetTrackingCard').default;
         return <BudgetTrackingCard card={card} financeData={financeData} />;
       
       case 'financial-goals':
-        const FinancialGoalsCard = require('./cards/FinancialGoalsCard').default;
         return <FinancialGoalsCard card={card} financeData={financeData} />;
 
       case 'financial-health-score':
-        const FinancialHealthCard = require('./cards/FinancialHealthCard').default;
         return <FinancialHealthCard card={card} financeData={financeData} />;
       
       case 'account-progress':
-        const AccountProgressCard = require('./cards/AccountProgressCard').default;
         return <AccountProgressCard card={card} financeData={financeData} />;
         
       case 'assets-overview':
-        const AssetsOverviewCard = require('./cards/AssetsOverviewCard').default;
         return <AssetsOverviewCard card={card} financeData={financeData} />;
       
       case 'asset-allocation':
-        const AssetAllocationCard = require('./cards/AssetAllocationCard').default;
         return <AssetAllocationCard card={card} financeData={financeData} />;
       
-             case 'vesting-schedules':
-         const VestingSchedulesCard = require('./cards/VestingSchedulesCard').default;
-         return <VestingSchedulesCard 
-           card={card} 
-           financeData={financeData} 
-           onShowVestingModal={onShowVestingModal}
-         />;
+      case 'vesting-schedules':
+        return <VestingSchedulesCard 
+          card={card} 
+          financeData={financeData} 
+          onShowVestingModal={onShowVestingModal || (() => {})}
+        />;
 
-       case 'recent-transactions':
-         const RecentTransactionsCard = require('./cards/RecentTransactionsCard').default;
-         return <RecentTransactionsCard card={card} financeData={financeData} />;
+      case 'recent-transactions':
+        return <RecentTransactionsCard card={card} financeData={financeData} />;
 
-       // Add more card cases as needed...
+      case 'goal-timeline':
+        return <GoalTimelineCard card={card} financeData={financeData} />;
+
+      case 'subscription-tracker':
+        return <SubscriptionTrackerCard card={card} financeData={financeData} />;
+
+      case 'bonus-tracker':
+        return <BonusTrackerCard card={card} financeData={financeData} />;
+
+      case 'peer-benchmarking':
+        return <PeerBenchmarkingCard card={card} financeData={financeData} />;
+
+      case 'household-contributions':
+        return <HouseholdContributionsCard card={card} financeData={financeData} />;
+
+      case 'cash-flow-insights':
+        return <CashFlowInsightsCard card={card} financeData={financeData} />;
+
+      case 'alerts-recommendations':
+        return <AlertsRecommendationsCard card={card} financeData={financeData} />;
+
+      case 'dashboard-customization':
+        return <DashboardCustomizationCard card={card} financeData={financeData} />;
+
+      // Fallback for any unrecognized cards
       default:
-        const PlaceholderCard = require('./cards/PlaceholderCard').default;
         return <PlaceholderCard card={card} />;
     }
   };
 
   return (
-    <div className={`bg-white rounded-lg border border-gray-200 shadow-sm relative ${getSizeClass(card.size)}`}>
-      {/* Card Header */}
-      <div className="flex items-center justify-between p-4 border-b border-gray-100">
-        <h3 className="text-lg font-semibold text-gray-900">
-          {cardDefinition?.title || card.type}
-        </h3>
-        
-        <div className="flex items-center gap-2">
-          {/* Time Range Indicator */}
-          {supportsTimeRange && (
-            <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">
-              {timeRangeOptions.find(opt => opt.value === currentTimeRange)?.label || '6 Months'}
-            </span>
-          )}
-
+    <div className={`relative ${getSizeClass(card.size)}`}>
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 h-full overflow-hidden">
+        {/* Card Header */}
+        <div className="flex items-center justify-between p-4 border-b border-gray-100">
+          <h3 className="text-lg font-semibold text-gray-900">
+            {cardDefinition.title}
+          </h3>
+          
           {/* Card Menu */}
           <div className="relative">
             <button
               ref={buttonRef}
               onClick={() => setShowMenu(!showMenu)}
-              className="p-1 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded transition-colors"
-              title="Card options"
+              className="p-1 text-gray-400 hover:text-gray-600 transition-colors"
             >
               <MoreVertical className="h-4 w-4" />
             </button>
-
+            
             {showMenu && (
-              <div 
+              <div
                 ref={menuRef}
-                className="absolute right-0 top-8 w-48 bg-white border border-gray-200 rounded-lg shadow-lg z-50"
+                className="absolute right-0 top-full mt-1 w-48 bg-white border border-gray-200 rounded-lg shadow-lg z-50"
               >
-                <div className="py-1">
-                  {/* Time Range Options */}
-                  {supportsTimeRange && (
-                    <>
-                      <div className="px-3 py-2 text-xs font-medium text-gray-500 border-b border-gray-100">
-                        Time Range
-                      </div>
-                      {timeRangeOptions.map((option) => (
-                        <button
-                          key={option.value}
-                          onClick={() => handleTimeRangeChange(option.value)}
-                          className={`w-full text-left px-3 py-2 text-sm hover:bg-gray-50 flex items-center gap-2 ${
-                            currentTimeRange === option.value ? 'text-blue-600 bg-blue-50' : 'text-gray-700'
-                          }`}
-                        >
-                          <Calendar className="h-4 w-4" />
-                          {option.label}
-                          {currentTimeRange === option.value && (
-                            <span className="ml-auto text-blue-600">✓</span>
-                          )}
-                        </button>
-                      ))}
-                      <div className="border-t border-gray-100 my-1" />
-                    </>
-                  )}
-
-                  {/* Remove Card */}
+                {supportsTimeRange && (
+                  <div className="p-2 border-b border-gray-100">
+                    <div className="text-xs font-medium text-gray-700 mb-2">Time Range</div>
+                    {timeRangeOptions.map((option) => (
+                      <button
+                        key={option.value}
+                        onClick={() => handleTimeRangeChange(option.value)}
+                        className={`w-full text-left px-2 py-1 text-sm rounded hover:bg-gray-100 ${
+                          currentTimeRange === option.value ? 'bg-blue-50 text-blue-700' : 'text-gray-700'
+                        }`}
+                      >
+                        {option.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                <div className="p-1">
                   <button
                     onClick={handleRemoveCard}
-                    className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
+                    className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded flex items-center gap-2"
                   >
                     <Trash2 className="h-4 w-4" />
                     Remove Card
@@ -235,6 +251,11 @@ const DashboardCardWrapper: React.FC<DashboardCardWrapperProps> = ({
               </div>
             )}
           </div>
+        </div>
+        
+        {/* Card Content */}
+        <div className="p-4 h-full">
+          {renderCardContent()}
         </div>
       </div>
       
@@ -281,11 +302,6 @@ const DashboardCardWrapper: React.FC<DashboardCardWrapperProps> = ({
           </div>
         </div>
       )}
-      
-      {/* Card Content */}
-      <div className="p-4 h-full">
-        {renderCardContent()}
-      </div>
     </div>
   );
 };
