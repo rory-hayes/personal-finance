@@ -37,7 +37,8 @@ const Dashboard: React.FC = () => {
     monthlyAllocations,
     addVestingSchedule,
     addMonthlyAllocation,
-    updateAccount
+    updateAccount,
+    allocateToAccount
   } = useFinanceData();
 
   // Get current user (for demo, use first user or create a default)
@@ -62,6 +63,9 @@ const Dashboard: React.FC = () => {
   const [showVestingModal, setShowVestingModal] = useState(false);
   const [showAllocationModal, setShowAllocationModal] = useState(false);
   const [selectedVestingYear, setSelectedVestingYear] = useState(new Date().getFullYear());
+  
+  // Monthly allocation form state
+  const [allocationAmounts, setAllocationAmounts] = useState<Record<string, string>>({});
   
   // Vesting form state
   const [vestingFormData, setVestingFormData] = useState({
@@ -122,28 +126,37 @@ const Dashboard: React.FC = () => {
       return;
     }
 
-    const vestingData = {
-      userId: currentUser.id,
-      monthlyAmount: monthlyAmount,
-      startDate: vestingFormData.startDate,
-      endDate: vestingFormData.endDate,
-      description: vestingFormData.description.trim() || undefined,
-      cliffAmount: vestingFormData.cliffAmount ? parseFloat(vestingFormData.cliffAmount) : undefined,
-      cliffPeriod: vestingFormData.cliffAmount ? parseInt(vestingFormData.cliffPeriod) : undefined
-    };
+    try {
+      const vestingData = {
+        userId: currentUser.id,
+        monthlyAmount: monthlyAmount,
+        startDate: vestingFormData.startDate,
+        endDate: vestingFormData.endDate,
+        description: vestingFormData.description.trim() || undefined,
+        cliffAmount: vestingFormData.cliffAmount ? parseFloat(vestingFormData.cliffAmount) : undefined,
+        cliffPeriod: vestingFormData.cliffAmount ? parseInt(vestingFormData.cliffPeriod) : undefined
+      };
 
-    await addVestingSchedule(vestingData);
-    
-    // Reset form
-    setVestingFormData({
-      monthlyAmount: '',
-      startDate: '',
-      endDate: '',
-      description: '',
-      cliffAmount: '',
-      cliffPeriod: '6'
-    });
-    setShowVestingModal(false);
+      await addVestingSchedule(vestingData);
+      
+      // Reset form
+      setVestingFormData({
+        monthlyAmount: '',
+        startDate: '',
+        endDate: '',
+        description: '',
+        cliffAmount: '',
+        cliffPeriod: '6'
+      });
+      setShowVestingModal(false);
+      
+      // Show success message
+      alert('Vesting schedule added successfully! Check the vesting card to see your updated projections.');
+      
+    } catch (error) {
+      console.error('Error adding vesting schedule:', error);
+      alert('Error adding vesting schedule. Please try again.');
+    }
   };
 
   // Render different card types
@@ -333,44 +346,180 @@ const Dashboard: React.FC = () => {
       {/* Monthly Allocation Modal */}
       {showAllocationModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl p-6 w-full max-w-md">
+          <div className="bg-white rounded-xl p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-xl font-bold text-gray-900">Monthly Allocation</h2>
               <button
-                onClick={() => setShowAllocationModal(false)}
+                onClick={() => {
+                  setShowAllocationModal(false);
+                  setAllocationAmounts({});
+                }}
                 className="p-2 text-gray-400 hover:text-gray-600 transition-colors"
               >
                 <X className="h-5 w-5" />
               </button>
             </div>
             
-            <div className="space-y-4">
-              <p className="text-sm text-gray-600">
-                Allocate your monthly income across different accounts.
-              </p>
-              
-              <div className="text-center py-8 text-gray-500">
-                <p>Monthly allocation functionality</p>
-                <p className="text-xs">Will be restored with modal form</p>
+            <div className="space-y-6">
+              {/* Income Summary */}
+              <div className="bg-blue-50 rounded-lg p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-blue-600 font-medium">Total Monthly Income</p>
+                    <p className="text-2xl font-bold text-blue-900">€{totalIncome.toLocaleString()}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-sm text-blue-600">Allocated</p>
+                    <p className="text-lg font-semibold text-blue-900">
+                      €{Object.values(allocationAmounts).reduce((sum, amount) => sum + (parseFloat(amount) || 0), 0).toLocaleString()}
+                    </p>
+                    <p className="text-xs text-blue-600">
+                      Remaining: €{(totalIncome - Object.values(allocationAmounts).reduce((sum, amount) => sum + (parseFloat(amount) || 0), 0)).toLocaleString()}
+                    </p>
+                  </div>
+                </div>
               </div>
+
+              {/* Allocation Form */}
+              {accounts.length > 0 ? (
+                <div className="space-y-4">
+                  <p className="text-sm text-gray-600">
+                    Allocate your monthly income across your accounts:
+                  </p>
+                  
+                  {accounts.map((account) => (
+                    <div key={account.id} className="border border-gray-200 rounded-lg p-4">
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-3">
+                          <div 
+                            className="w-3 h-3 rounded-full"
+                            style={{ backgroundColor: account.color }}
+                          />
+                          <div>
+                            <p className="font-medium text-gray-900">{account.name}</p>
+                            <p className="text-sm text-gray-500">
+                              {account.type.charAt(0).toUpperCase() + account.type.slice(1)} • 
+                              Current: €{account.balance.toLocaleString()}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      <div className="flex items-center gap-2">
+                        <label className="text-sm text-gray-600 min-w-fit">Allocate:</label>
+                        <div className="flex-1 relative">
+                          <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500">€</span>
+                          <input
+                            type="number"
+                            value={allocationAmounts[account.id] || ''}
+                            onChange={(e) => setAllocationAmounts(prev => ({
+                              ...prev,
+                              [account.id]: e.target.value
+                            }))}
+                            placeholder="0.00"
+                            min="0"
+                            step="0.01"
+                            className="w-full pl-8 pr-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          />
+                        </div>
+                        <button
+                          onClick={() => {
+                            const remaining = totalIncome - Object.entries(allocationAmounts)
+                              .filter(([id]) => id !== account.id)
+                              .reduce((sum, [, amount]) => sum + (parseFloat(amount) || 0), 0);
+                            setAllocationAmounts(prev => ({
+                              ...prev,
+                              [account.id]: Math.max(0, remaining).toString()
+                            }));
+                          }}
+                          className="px-3 py-2 text-xs bg-gray-100 text-gray-600 rounded hover:bg-gray-200 transition-colors"
+                        >
+                          Fill Rest
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8 text-gray-500">
+                  <p className="text-lg mb-2">No accounts found</p>
+                  <p className="text-sm">Create accounts in the Household tab first to allocate funds</p>
+                  <button
+                    onClick={() => {
+                      setShowAllocationModal(false);
+                      // Switch to household tab
+                      window.dispatchEvent(new CustomEvent('switchToHousehold'));
+                    }}
+                    className="mt-3 text-blue-600 text-sm hover:text-blue-700"
+                  >
+                    Go to Household Tab
+                  </button>
+                </div>
+              )}
               
-              <div className="flex gap-3">
-                <button
-                  onClick={() => setShowAllocationModal(false)}
-                  className="flex-1 px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={() => {
-                    // TODO: Add allocation logic
-                    setShowAllocationModal(false);
-                  }}
-                  className="flex-1 px-4 py-2 text-white bg-green-600 rounded-lg hover:bg-green-700 transition-colors"
-                >
-                  Allocate
-                </button>
-              </div>
+              {/* Action Buttons */}
+              {accounts.length > 0 && (
+                <div className="flex gap-3 pt-4 border-t">
+                  <button
+                    onClick={() => {
+                      setShowAllocationModal(false);
+                      setAllocationAmounts({});
+                    }}
+                    className="flex-1 px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={async () => {
+                      try {
+                        const hasAllocations = Object.values(allocationAmounts).some(amount => parseFloat(amount) > 0);
+                        
+                        if (!hasAllocations) {
+                          alert('Please enter at least one allocation amount');
+                          return;
+                        }
+
+                        // Process allocations
+                        for (const [accountId, amount] of Object.entries(allocationAmounts)) {
+                          const numAmount = parseFloat(amount);
+                          if (numAmount > 0) {
+                            await allocateToAccount(accountId, numAmount, 'Monthly income allocation');
+                          }
+                        }
+
+                        // Add to monthly allocations record
+                        const allocationRecord = {
+                          id: `allocation-${Date.now()}`,
+                          userId: currentUser.id,
+                          month: new Date().toISOString().split('T')[0].substring(0, 7),
+                          totalAmount: Object.values(allocationAmounts).reduce((sum, amount) => sum + (parseFloat(amount) || 0), 0),
+                          allocations: Object.entries(allocationAmounts)
+                            .filter(([, amount]) => parseFloat(amount) > 0)
+                            .map(([accountId, amount]) => ({
+                              accountId,
+                              amount: parseFloat(amount),
+                              accountName: accounts.find(a => a.id === accountId)?.name || 'Unknown'
+                            })),
+                          createdAt: new Date().toISOString()
+                        };
+
+                        await addMonthlyAllocation(allocationRecord);
+                        
+                        setShowAllocationModal(false);
+                        setAllocationAmounts({});
+                        alert('Monthly allocation completed successfully!');
+                      } catch (error) {
+                        console.error('Error processing allocation:', error);
+                        alert('Error processing allocation. Please try again.');
+                      }
+                    }}
+                    className="flex-1 px-4 py-2 text-white bg-green-600 rounded-lg hover:bg-green-700 transition-colors"
+                    disabled={!Object.values(allocationAmounts).some(amount => parseFloat(amount) > 0)}
+                  >
+                    Allocate Funds
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>

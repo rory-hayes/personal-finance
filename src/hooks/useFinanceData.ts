@@ -813,6 +813,11 @@ export const useFinanceData = () => {
           cliffPeriod: data.cliff_period
         };
         setVestingSchedules(prev => [newSchedule, ...prev]);
+        
+        // Force a complete refresh to ensure all components update
+        setTimeout(() => {
+          loadVestingSchedules();
+        }, 100);
       }
 
     } catch (error) {
