@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { TrendingUp, TrendingDown, BarChart3, Calendar } from 'lucide-react';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts';
+import { TrendingUp, TrendingDown, BarChart3, Calendar, Target, DollarSign } from 'lucide-react';
 
 interface NetWorthGrowthCardProps {
   card: any;
@@ -12,256 +12,301 @@ const NetWorthGrowthCard: React.FC<NetWorthGrowthCardProps> = ({ card, financeDa
     totalAssetValue, 
     totalAccountBalance, 
     monthlySummaries, 
-    transactions 
+    transactions,
+    totalIncome,
+    totalSpending,
+    goals
   } = financeData;
 
-  // Calculate net worth growth data
+  // Calculate comprehensive net worth growth data
   const growthData = useMemo(() => {
     const currentNetWorth = totalAssetValue + totalAccountBalance;
     const currentDate = new Date();
-    const months = card.config.timeRange === '12months' ? 12 : card.config.timeRange === '6months' ? 6 : 24;
+    const currentYear = currentDate.getFullYear();
+    const currentMonth = currentDate.getMonth();
     
-    // If we have monthly summaries, use those
-    if (monthlySummaries && monthlySummaries.length > 0) {
-      const summariesWithNetWorth = monthlySummaries
-        .filter((summary: any) => summary.netWorth !== undefined)
-        .sort((a: any, b: any) => new Date(a.month).getTime() - new Date(b.month).getTime())
-        .slice(-months);
-
-      // Add current month if not already included
-      const lastSummaryMonth = summariesWithNetWorth[summariesWithNetWorth.length - 1]?.month;
-      const currentMonthStr = currentDate.toISOString().substring(0, 7);
+    // Generate historical data (past 24 months)
+    const historicalData = [];
+    const futureData = [];
+    
+    // Calculate monthly income/spending trends for forecasting
+    const monthlySavings = totalIncome - totalSpending;
+    const savingsRate = totalIncome > 0 ? monthlySavings / totalIncome : 0;
+    
+    // Historical data generation (24 months back)
+    for (let i = 23; i >= 0; i--) {
+      const date = new Date(currentYear, currentMonth - i, 1);
+      const monthKey = date.toISOString().substring(0, 7);
       
-      if (lastSummaryMonth !== currentMonthStr) {
-        summariesWithNetWorth.push({
-          month: currentMonthStr,
-          netWorth: currentNetWorth,
-          totalIncome: totalAssetValue, // Placeholder
-          totalSpending: 0 // Placeholder
-        });
-      }
-
-      const chartData = summariesWithNetWorth.map((summary: any, index: number) => {
-        const date = new Date(summary.month + '-01');
-        const prevNetWorth = index > 0 ? summariesWithNetWorth[index - 1].netWorth : summary.netWorth;
-        const change = summary.netWorth - prevNetWorth;
-        const changePercent = prevNetWorth > 0 ? (change / prevNetWorth) * 100 : 0;
-
-        return {
-          month: date.toLocaleDateString('en-US', { month: 'short', year: '2-digit' }),
-          netWorth: summary.netWorth,
-          change: change,
-          changePercent: changePercent,
-          date: date
-        };
-      });
-
-      // Calculate overall growth metrics
-      const firstNetWorth = chartData[0]?.netWorth || 0;
-      const lastNetWorth = chartData[chartData.length - 1]?.netWorth || 0;
-      const totalGrowth = lastNetWorth - firstNetWorth;
-      const totalGrowthPercent = firstNetWorth > 0 ? (totalGrowth / firstNetWorth) * 100 : 0;
-      const avgMonthlyGrowth = chartData.length > 1 ? totalGrowth / (chartData.length - 1) : 0;
-
-      return {
-        chartData,
-        currentNetWorth,
-        totalGrowth,
-        totalGrowthPercent,
-        avgMonthlyGrowth,
-        hasData: chartData.length > 1,
-        dataSource: 'summaries'
-      };
-    }
-
-    // Fallback: Generate estimated data from transactions
-    const monthlyData: any[] = [];
-    let runningNetWorth = currentNetWorth;
-
-    // Work backwards from current month
-    for (let i = 0; i < months; i++) {
-      const date = new Date(currentDate);
-      date.setMonth(date.getMonth() - i);
-      const monthStr = date.toISOString().substring(0, 7);
-
-      // Calculate net worth change for this month based on transactions
-      const monthTransactions = transactions.filter((t: any) => {
-        const transactionDate = new Date(t.date);
-        return transactionDate.toISOString().substring(0, 7) === monthStr;
-      });
-
-      const monthlyChange = monthTransactions.reduce((sum: number, t: any) => sum + t.amount, 0);
+      // Try to use actual data from monthlySummaries if available
+      const actualSummary = monthlySummaries?.find((s: any) => s.month === monthKey);
       
-      if (i === 0) {
-        // Current month
-        runningNetWorth = currentNetWorth;
+      let netWorth;
+      if (actualSummary?.netWorth !== undefined) {
+        netWorth = actualSummary.netWorth;
       } else {
-        // Estimate previous months by subtracting transaction changes
-        runningNetWorth -= monthlyChange;
+        // Estimate based on savings trend
+        const monthsFromCurrent = i;
+        const estimatedSavingsContribution = monthsFromCurrent * monthlySavings * 0.8; // Conservative estimate
+        netWorth = Math.max(currentNetWorth - estimatedSavingsContribution, currentNetWorth * 0.3);
       }
-
-      monthlyData.unshift({
+      
+      historicalData.push({
         month: date.toLocaleDateString('en-US', { month: 'short', year: '2-digit' }),
-        netWorth: Math.max(runningNetWorth, 0),
-        change: i === 0 ? 0 : monthlyChange,
-        changePercent: 0,
-        date: date,
-        estimated: i > 0
+        fullDate: date,
+        netWorth: netWorth,
+        isActual: !!actualSummary,
+        isProjected: false,
+        isCurrent: i === 0
       });
     }
-
-    // Calculate change percentages
-    monthlyData.forEach((data, index) => {
-      if (index > 0) {
-        const prevNetWorth = monthlyData[index - 1].netWorth;
-        data.change = data.netWorth - prevNetWorth;
-        data.changePercent = prevNetWorth > 0 ? (data.change / prevNetWorth) * 100 : 0;
-      }
-    });
-
-    const firstNetWorth = monthlyData[0]?.netWorth || 0;
-    const lastNetWorth = monthlyData[monthlyData.length - 1]?.netWorth || 0;
-    const totalGrowth = lastNetWorth - firstNetWorth;
-    const totalGrowthPercent = firstNetWorth > 0 ? (totalGrowth / firstNetWorth) * 100 : 0;
-    const avgMonthlyGrowth = monthlyData.length > 1 ? totalGrowth / (monthlyData.length - 1) : 0;
-
+    
+    // Calculate growth trends from historical data
+    const recentMonths = historicalData.slice(-6);
+    const avgMonthlyGrowth = recentMonths.length > 1 ? 
+      (recentMonths[recentMonths.length - 1].netWorth - recentMonths[0].netWorth) / (recentMonths.length - 1) : 
+      monthlySavings;
+    
+    // Generate future projections (next 12 months)
+    for (let i = 1; i <= 12; i++) {
+      const date = new Date(currentYear, currentMonth + i, 1);
+      
+      // Conservative projection with some variance
+      const baseGrowth = avgMonthlyGrowth * 0.9; // Slightly conservative
+      const variance = 1 + (Math.sin(i / 3) * 0.1); // Add some seasonal variance
+      const projectedGrowth = baseGrowth * variance;
+      
+      const projectedNetWorth = currentNetWorth + (projectedGrowth * i);
+      
+      futureData.push({
+        month: date.toLocaleDateString('en-US', { month: 'short', year: '2-digit' }),
+        fullDate: date,
+        netWorth: Math.max(projectedNetWorth, currentNetWorth),
+        isActual: false,
+        isProjected: true,
+        isCurrent: false
+      });
+    }
+    
+    // Combine historical and future data
+    const allData = [...historicalData, ...futureData];
+    
+    // Calculate key metrics
+    const oneYearAgo = allData[allData.length - 13] || allData[0];
+    const yearOverYearGrowth = oneYearAgo ? 
+      ((currentNetWorth - oneYearAgo.netWorth) / oneYearAgo.netWorth) * 100 : 0;
+    
+    const threeMonthsAgo = allData[allData.length - 4] || allData[0];
+    const quarterGrowth = threeMonthsAgo ? 
+      ((currentNetWorth - threeMonthsAgo.netWorth) / threeMonthsAgo.netWorth) * 100 : 0;
+    
+    const oneYearProjection = futureData[11]?.netWorth || currentNetWorth;
+    const projectedYearGrowth = ((oneYearProjection - currentNetWorth) / currentNetWorth) * 100;
+    
+    // Find relevant financial goals
+    const netWorthGoals = goals?.filter((g: any) => 
+      g.name.toLowerCase().includes('net worth') || 
+      g.name.toLowerCase().includes('wealth') ||
+      g.targetAmount > currentNetWorth * 0.5 // Likely wealth goals
+    ) || [];
+    
     return {
-      chartData: monthlyData,
+      chartData: allData,
       currentNetWorth,
-      totalGrowth,
-      totalGrowthPercent,
       avgMonthlyGrowth,
-      hasData: monthlyData.length > 1,
-      dataSource: 'estimated'
+      yearOverYearGrowth,
+      quarterGrowth,
+      projectedYearGrowth,
+      oneYearProjection,
+      netWorthGoals: netWorthGoals.slice(0, 2), // Top 2 relevant goals
+      hasHistoricalData: historicalData.some(d => d.isActual),
+      trend: avgMonthlyGrowth > 0 ? 'positive' : avgMonthlyGrowth < 0 ? 'negative' : 'stable'
     };
-  }, [totalAssetValue, totalAccountBalance, monthlySummaries, transactions, card.config.timeRange]);
+  }, [totalAssetValue, totalAccountBalance, monthlySummaries, totalIncome, totalSpending, goals]);
+
+  const renderQuarterView = () => (
+    <div className="flex flex-col h-full">
+      <div className="grid grid-cols-2 gap-3 mb-4">
+        <div className="text-center p-3 bg-purple-50 rounded-lg">
+          <p className="text-lg font-bold text-purple-900">
+            €{growthData.currentNetWorth.toLocaleString()}
+          </p>
+          <p className="text-xs text-purple-700">Current Net Worth</p>
+        </div>
+        <div className="text-center p-3 bg-green-50 rounded-lg">
+          <div className="flex items-center justify-center gap-1">
+            {growthData.yearOverYearGrowth >= 0 ? (
+              <TrendingUp className="h-3 w-3 text-green-600" />
+            ) : (
+              <TrendingDown className="h-3 w-3 text-red-600" />
+            )}
+            <p className={`text-lg font-bold ${
+              growthData.yearOverYearGrowth >= 0 ? 'text-green-900' : 'text-red-900'
+            }`}>
+              {growthData.yearOverYearGrowth >= 0 ? '+' : ''}{growthData.yearOverYearGrowth.toFixed(1)}%
+            </p>
+          </div>
+          <p className="text-xs text-green-700">Year Growth</p>
+        </div>
+      </div>
+
+      <div className="space-y-2 flex-1">
+        <div className="flex justify-between items-center p-2 bg-gray-50 rounded">
+          <span className="text-xs text-gray-600">Monthly Trend</span>
+          <span className={`text-xs font-medium ${
+            growthData.avgMonthlyGrowth >= 0 ? 'text-green-600' : 'text-red-600'
+          }`}>
+            €{Math.abs(growthData.avgMonthlyGrowth).toLocaleString()}/mo
+          </span>
+        </div>
+        
+        <div className="flex justify-between items-center p-2 bg-gray-50 rounded">
+          <span className="text-xs text-gray-600">1-Year Projection</span>
+          <span className="text-xs font-medium text-blue-600">
+            €{growthData.oneYearProjection.toLocaleString()}
+          </span>
+        </div>
+
+        {growthData.netWorthGoals.length > 0 && (
+          <div className="mt-2">
+            <p className="text-xs font-medium text-gray-700 mb-1">Goals Progress</p>
+            {growthData.netWorthGoals.map((goal: any) => {
+              const progress = (growthData.currentNetWorth / goal.targetAmount) * 100;
+              return (
+                <div key={goal.id} className="mb-1">
+                  <div className="flex justify-between text-xs">
+                    <span className="text-gray-600 truncate">{goal.name}</span>
+                    <span className="text-gray-600">{Math.min(progress, 100).toFixed(0)}%</span>
+                  </div>
+                  <div className="w-full bg-gray-200 rounded-full h-1.5">
+                    <div 
+                      className="h-1.5 bg-blue-500 rounded-full"
+                      style={{ width: `${Math.min(progress, 100)}%` }}
+                    />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </div>
+  );
 
   const renderHalfView = () => (
     <div className="flex flex-col h-full">
-      <div className="grid grid-cols-2 gap-4 mb-4">
+      <div className="grid grid-cols-3 gap-4 mb-4">
         <div className="text-center">
           <p className="text-xl font-bold text-gray-900">
             €{growthData.currentNetWorth.toLocaleString()}
           </p>
-          <p className="text-sm text-gray-600">Current Net Worth</p>
+          <p className="text-sm text-gray-600">Current</p>
         </div>
         <div className="text-center">
           <div className="flex items-center justify-center gap-2">
-            {growthData.totalGrowth >= 0 ? (
+            {growthData.yearOverYearGrowth >= 0 ? (
               <TrendingUp className="h-4 w-4 text-green-600" />
             ) : (
               <TrendingDown className="h-4 w-4 text-red-600" />
             )}
             <p className={`text-lg font-bold ${
-              growthData.totalGrowth >= 0 ? 'text-green-600' : 'text-red-600'
+              growthData.yearOverYearGrowth >= 0 ? 'text-green-600' : 'text-red-600'
             }`}>
-              {growthData.totalGrowthPercent >= 0 ? '+' : ''}{growthData.totalGrowthPercent.toFixed(1)}%
+              {growthData.yearOverYearGrowth >= 0 ? '+' : ''}{growthData.yearOverYearGrowth.toFixed(1)}%
             </p>
           </div>
-          <p className="text-sm text-gray-600">Growth</p>
+          <p className="text-sm text-gray-600">YoY Growth</p>
+        </div>
+        <div className="text-center">
+          <p className="text-lg font-bold text-blue-600">
+            €{growthData.oneYearProjection.toLocaleString()}
+          </p>
+          <p className="text-sm text-gray-600">1-Year Target</p>
         </div>
       </div>
 
       <div className="flex-1">
-        {growthData.hasData ? (
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={growthData.chartData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-              <XAxis 
-                dataKey="month" 
-                tick={{ fontSize: 11 }}
-                axisLine={false}
-              />
-              <YAxis 
-                tick={{ fontSize: 11 }}
-                axisLine={false}
-                tickFormatter={(value) => `€${(value / 1000).toFixed(0)}k`}
-              />
-              <Tooltip 
-                formatter={(value: any) => [`€${value.toLocaleString()}`, 'Net Worth']}
-                labelStyle={{ color: '#374151' }}
-              />
-              <Line 
-                type="monotone" 
-                dataKey="netWorth" 
-                stroke="#8B5CF6" 
-                strokeWidth={3}
-                dot={{ fill: '#8B5CF6', strokeWidth: 2, r: 4 }}
-                strokeDasharray={growthData.dataSource === 'estimated' ? '5 5' : '0'}
-              />
-            </LineChart>
-          </ResponsiveContainer>
-        ) : (
-          <div className="flex items-center justify-center h-full text-gray-500">
-            <div className="text-center">
-              <BarChart3 className="h-12 w-12 text-gray-400 mx-auto mb-2" />
-              <p className="text-sm">Not enough data for growth chart</p>
-            </div>
-          </div>
-        )}
+        <ResponsiveContainer width="100%" height="100%">
+          <LineChart data={growthData.chartData}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+            <XAxis 
+              dataKey="month" 
+              tick={{ fontSize: 11 }}
+              axisLine={false}
+            />
+            <YAxis 
+              tick={{ fontSize: 11 }}
+              axisLine={false}
+              tickFormatter={(value) => `€${(value / 1000).toFixed(0)}k`}
+            />
+            <Tooltip 
+              formatter={(value: any) => [`€${value.toLocaleString()}`, 'Net Worth']}
+              labelStyle={{ color: '#374151' }}
+              contentStyle={{
+                backgroundColor: 'white',
+                border: '1px solid #e5e7eb',
+                borderRadius: '6px'
+              }}
+            />
+            <ReferenceLine 
+              x={new Date().toLocaleDateString('en-US', { month: 'short', year: '2-digit' })}
+              stroke="#6b7280" 
+              strokeDasharray="2 2"
+              label={{ value: "Today", position: "top" }}
+            />
+            <Line 
+              type="monotone" 
+              dataKey="netWorth" 
+              stroke="#8B5CF6" 
+              strokeWidth={3}
+              dot={false}
+              connectNulls={false}
+            />
+          </LineChart>
+        </ResponsiveContainer>
       </div>
-
-      {growthData.dataSource === 'estimated' && (
-        <div className="mt-2 text-xs text-gray-500 text-center">
-          ⚡ Estimated based on transaction history
-        </div>
-      )}
     </div>
   );
 
   const renderFullView = () => (
     <div className="flex flex-col h-full">
       <div className="grid grid-cols-4 gap-4 mb-6">
-        <div className="text-center p-3 bg-purple-50 rounded-lg">
-          <p className="text-xl font-bold text-purple-900">
+        <div className="text-center p-4 bg-purple-50 rounded-lg">
+          <DollarSign className="h-8 w-8 text-purple-600 mx-auto mb-2" />
+          <p className="text-2xl font-bold text-purple-900">
             €{growthData.currentNetWorth.toLocaleString()}
           </p>
           <p className="text-sm text-purple-700">Current Net Worth</p>
         </div>
-        <div className="text-center p-3 bg-green-50 rounded-lg">
-          <p className={`text-xl font-bold ${
-            growthData.totalGrowth >= 0 ? 'text-green-900' : 'text-red-900'
-          }`}>
-            {growthData.totalGrowth >= 0 ? '+' : ''}€{growthData.totalGrowth.toLocaleString()}
+        <div className="text-center p-4 bg-green-50 rounded-lg">
+          <TrendingUp className="h-8 w-8 text-green-600 mx-auto mb-2" />
+          <p className="text-2xl font-bold text-green-900">
+            {growthData.yearOverYearGrowth >= 0 ? '+' : ''}{growthData.yearOverYearGrowth.toFixed(1)}%
           </p>
-          <p className="text-sm text-gray-700">Total Growth</p>
+          <p className="text-sm text-green-700">Year-over-Year</p>
         </div>
-        <div className="text-center p-3 bg-blue-50 rounded-lg">
-          <p className={`text-xl font-bold ${
-            growthData.totalGrowthPercent >= 0 ? 'text-blue-900' : 'text-red-900'
-          }`}>
-            {growthData.totalGrowthPercent >= 0 ? '+' : ''}{growthData.totalGrowthPercent.toFixed(1)}%
+        <div className="text-center p-4 bg-blue-50 rounded-lg">
+          <Target className="h-8 w-8 text-blue-600 mx-auto mb-2" />
+          <p className="text-2xl font-bold text-blue-900">
+            €{growthData.oneYearProjection.toLocaleString()}
           </p>
-          <p className="text-sm text-blue-700">Growth Rate</p>
+          <p className="text-sm text-blue-700">1-Year Projection</p>
         </div>
-        <div className="text-center p-3 bg-indigo-50 rounded-lg">
-          <p className="text-xl font-bold text-indigo-900">
-            {growthData.avgMonthlyGrowth >= 0 ? '+' : ''}€{growthData.avgMonthlyGrowth.toLocaleString()}
+        <div className="text-center p-4 bg-indigo-50 rounded-lg">
+          <Calendar className="h-8 w-8 text-indigo-600 mx-auto mb-2" />
+          <p className="text-2xl font-bold text-indigo-900">
+            {growthData.projectedYearGrowth >= 0 ? '+' : ''}{growthData.projectedYearGrowth.toFixed(1)}%
           </p>
-          <p className="text-sm text-indigo-700">Avg Monthly</p>
+          <p className="text-sm text-indigo-700">Projected Growth</p>
         </div>
       </div>
 
-      <div className="flex-1">
-        <div className="flex items-center justify-between mb-4">
-          <h4 className="font-medium text-gray-900">Net Worth Progression</h4>
-          {growthData.dataSource === 'estimated' && (
-            <div className="flex items-center gap-2 text-sm text-gray-500">
-              <Calendar className="h-4 w-4" />
-              <span>Estimated from transactions</span>
-            </div>
-          )}
-        </div>
-
-        {growthData.hasData ? (
+      <div className="flex gap-6 flex-1 min-h-0">
+        {/* Chart Section */}
+        <div className="flex-1">
+          <h4 className="font-medium text-gray-900 mb-4">Net Worth Growth & Projections (24 Month View)</h4>
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={growthData.chartData}>
-              <defs>
-                <linearGradient id="colorNetWorth" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#8B5CF6" stopOpacity={0.3}/>
-                  <stop offset="95%" stopColor="#8B5CF6" stopOpacity={0}/>
-                </linearGradient>
-              </defs>
               <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
               <XAxis 
                 dataKey="month" 
@@ -274,63 +319,148 @@ const NetWorthGrowthCard: React.FC<NetWorthGrowthCardProps> = ({ card, financeDa
                 tickFormatter={(value) => `€${(value / 1000).toFixed(0)}k`}
               />
               <Tooltip 
-                formatter={(value: any, name: string) => {
-                  if (name === 'netWorth') return [`€${value.toLocaleString()}`, 'Net Worth'];
-                  if (name === 'change') return [`€${value.toLocaleString()}`, 'Monthly Change'];
-                  return [value, name];
+                formatter={(value: any, name: string, props: any) => {
+                  const isProjected = props.payload.isProjected;
+                  const label = isProjected ? 'Projected Net Worth' : 'Net Worth';
+                  return [`€${value.toLocaleString()}`, label];
                 }}
                 labelStyle={{ color: '#374151' }}
+                contentStyle={{
+                  backgroundColor: 'white',
+                  border: '1px solid #e5e7eb',
+                  borderRadius: '6px'
+                }}
               />
-              <Line 
-                type="monotone" 
-                dataKey="netWorth" 
-                stroke="#8B5CF6" 
-                strokeWidth={4}
-                fill="url(#colorNetWorth)"
-                dot={{ fill: '#8B5CF6', strokeWidth: 2, r: 5 }}
-                strokeDasharray={growthData.dataSource === 'estimated' ? '8 4' : '0'}
-              />
+                             <ReferenceLine 
+                 x={new Date().toLocaleDateString('en-US', { month: 'short', year: '2-digit' })}
+                 stroke="#6b7280" 
+                 strokeDasharray="2 2"
+                 label={{ value: "Today", position: "top" }}
+               />
+                             <Line 
+                 type="monotone" 
+                 dataKey="netWorth" 
+                 stroke="#8B5CF6" 
+                 strokeWidth={3}
+                 dot={false}
+                 connectNulls={false}
+               />
+              {/* Goal reference lines */}
+              {growthData.netWorthGoals.slice(0, 1).map((goal: any) => (
+                                 <ReferenceLine 
+                   key={goal.id}
+                   y={goal.targetAmount}
+                   stroke="#10B981" 
+                   strokeDasharray="5 5"
+                   label={{ value: `Goal: €${goal.targetAmount.toLocaleString()}`, position: "top" }}
+                 />
+              ))}
             </LineChart>
           </ResponsiveContainer>
-        ) : (
-          <div className="flex-1 flex items-center justify-center">
-            <div className="text-center text-gray-500">
-              <BarChart3 className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-              <p className="text-lg font-medium mb-2">No growth data available</p>
-              <p className="text-sm">Add historical data or monthly summaries to see trends</p>
+        </div>
+
+        {/* Insights Section */}
+        <div className="w-80 space-y-4">
+          <div>
+            <h4 className="font-medium text-gray-900 mb-3">Growth Insights</h4>
+            <div className="space-y-3">
+              <div className="p-3 bg-gray-50 rounded-lg">
+                <div className="flex items-center gap-2 mb-1">
+                  <div className={`w-2 h-2 rounded-full ${
+                    growthData.trend === 'positive' ? 'bg-green-500' : 
+                    growthData.trend === 'negative' ? 'bg-red-500' : 'bg-yellow-500'
+                  }`} />
+                  <span className="text-sm font-medium text-gray-900">
+                    {growthData.trend === 'positive' ? 'Positive Trend' : 
+                     growthData.trend === 'negative' ? 'Declining Trend' : 'Stable'}
+                  </span>
+                </div>
+                <p className="text-xs text-gray-600">
+                  Monthly average: €{Math.abs(growthData.avgMonthlyGrowth).toLocaleString()}
+                  {growthData.avgMonthlyGrowth >= 0 ? ' growth' : ' decline'}
+                </p>
+              </div>
+
+              <div className="p-3 bg-blue-50 rounded-lg">
+                <p className="text-sm font-medium text-blue-900 mb-1">Quarter Performance</p>
+                <p className="text-xs text-blue-700">
+                  {growthData.quarterGrowth >= 0 ? '+' : ''}{growthData.quarterGrowth.toFixed(1)}% 
+                  growth in last 3 months
+                </p>
+              </div>
+
+              {growthData.hasHistoricalData ? (
+                <div className="p-3 bg-green-50 rounded-lg">
+                  <p className="text-sm font-medium text-green-900 mb-1">Data Quality</p>
+                  <p className="text-xs text-green-700">Using actual historical data for accurate projections</p>
+                </div>
+              ) : (
+                <div className="p-3 bg-yellow-50 rounded-lg">
+                  <p className="text-sm font-medium text-yellow-900 mb-1">Estimated Data</p>
+                  <p className="text-xs text-yellow-700">Projections based on current trends</p>
+                </div>
+              )}
             </div>
           </div>
-        )}
-      </div>
 
-      {growthData.hasData && (
-        <div className="mt-4 grid grid-cols-3 gap-4 text-sm">
-          <div className="text-center p-3 bg-gray-50 rounded-lg">
-            <p className="font-medium text-gray-900">Best Month</p>
-            <p className="text-gray-600">
-              {growthData.chartData.reduce((best: any, current: any) => 
-                (current.change > (best?.change || -Infinity)) ? current : best, null
-              )?.month || 'N/A'}
-            </p>
-          </div>
-          <div className="text-center p-3 bg-gray-50 rounded-lg">
-            <p className="font-medium text-gray-900">Trend</p>
-            <p className={`font-medium ${
-              growthData.totalGrowth >= 0 ? 'text-green-600' : 'text-red-600'
-            }`}>
-              {growthData.totalGrowth >= 0 ? 'Growing' : 'Declining'}
-            </p>
-          </div>
-          <div className="text-center p-3 bg-gray-50 rounded-lg">
-            <p className="font-medium text-gray-900">Data Points</p>
-            <p className="text-gray-600">{growthData.chartData.length} months</p>
-          </div>
+          {growthData.netWorthGoals.length > 0 && (
+            <div>
+              <h4 className="font-medium text-gray-900 mb-3">Goal Progress</h4>
+              <div className="space-y-3">
+                {growthData.netWorthGoals.map((goal: any) => {
+                  const progress = (growthData.currentNetWorth / goal.targetAmount) * 100;
+                  const timeToGoal = goal.targetDate ? new Date(goal.targetDate) : null;
+                  const monthsToGoal = timeToGoal ? 
+                    Math.max(0, Math.ceil((timeToGoal.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24 * 30))) : 
+                    null;
+                  
+                  return (
+                    <div key={goal.id} className="p-3 bg-purple-50 rounded-lg">
+                      <div className="flex justify-between items-start mb-2">
+                        <span className="text-sm font-medium text-purple-900 truncate pr-2">
+                          {goal.name}
+                        </span>
+                        <span className="text-xs text-purple-700">
+                          {Math.min(progress, 100).toFixed(0)}%
+                        </span>
+                      </div>
+                      <div className="w-full bg-purple-200 rounded-full h-2 mb-2">
+                        <div 
+                          className="h-2 bg-purple-500 rounded-full transition-all duration-300"
+                          style={{ width: `${Math.min(progress, 100)}%` }}
+                        />
+                      </div>
+                      <div className="text-xs text-purple-700">
+                        <p>Target: €{goal.targetAmount.toLocaleString()}</p>
+                        {monthsToGoal && (
+                          <p>
+                            {monthsToGoal > 0 ? `${monthsToGoal} months remaining` : 'Overdue'}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </div>
-      )}
+      </div>
     </div>
   );
 
-  return card.size === 'half' ? renderHalfView() : renderFullView();
+  // Render based on card size
+  switch (card.size) {
+    case 'quarter':
+      return renderQuarterView();
+    case 'half':
+      return renderHalfView();
+    case 'full':
+    case 'tall':
+      return renderFullView();
+    default:
+      return renderHalfView();
+  }
 };
 
 export default NetWorthGrowthCard; 

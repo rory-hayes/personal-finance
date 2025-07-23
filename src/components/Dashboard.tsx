@@ -306,7 +306,7 @@ const Dashboard: React.FC = () => {
       </div>
 
       {/* Dashboard Grid */}
-      <div className="grid grid-cols-12 gap-6 auto-rows-min">
+              <div className="grid grid-cols-12 gap-6 auto-rows-max">
         {currentLayout.cards
           .filter(card => card.visible)
           .map((card) => (

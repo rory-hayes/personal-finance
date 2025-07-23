@@ -38,7 +38,7 @@ const SubscriptionTrackerCard: React.FC<SubscriptionTrackerCardProps> = ({ card,
     }, {});
 
     // Identify subscriptions based on recurring patterns
-    const subscriptions = Object.entries(transactionGroups)
+    const subscriptions = (Object.entries(transactionGroups) as [string, any[]][])
       .map(([description, groupTransactions]) => {
         const sortedTransactions = groupTransactions.sort((a: any, b: any) => 
           new Date(a.date).getTime() - new Date(b.date).getTime()
@@ -265,9 +265,9 @@ const SubscriptionTrackerCard: React.FC<SubscriptionTrackerCardProps> = ({ card,
               <div className="font-medium text-yellow-800 mb-1">Savings Tip</div>
               <div className="text-yellow-700">
                                  Review subscriptions over €20/month. You could save €
-                 {Math.round((subscriptionData.subscriptions
+                 {Math.round(subscriptionData.subscriptions
                    .filter((s: any) => s.monthlyAmount > 20)
-                   .reduce((sum: number, s: any) => sum + s.monthlyAmount, 0) * 0.3) || 0
+                   .reduce((sum: number, s: any) => sum + s.monthlyAmount, 0) * 0.3
                  )} annually by optimizing unused services.
               </div>
             </div>

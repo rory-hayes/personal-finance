@@ -26,6 +26,8 @@ import HouseholdContributionsCard from './cards/HouseholdContributionsCard';
 import CashFlowInsightsCard from './cards/CashFlowInsightsCard';
 import AlertsRecommendationsCard from './cards/AlertsRecommendationsCard';
 import DashboardCustomizationCard from './cards/DashboardCustomizationCard';
+import EmergencyFundCard from './cards/EmergencyFundCard';
+import NetWorthProjectionCard from './cards/NetWorthProjectionCard';
 import PlaceholderCard from './cards/PlaceholderCard';
 
 interface DashboardCardWrapperProps {
@@ -33,7 +35,7 @@ interface DashboardCardWrapperProps {
   financeData: any;
   isEditMode: boolean;
   onRemove: (cardId: string) => void;
-  onResize: (cardId: string, newSize: string) => void;
+  onResize: (cardId: string, newSize: 'quarter' | 'half' | 'tall' | 'full') => void;
   onConfigure: (cardId: string, config: any) => void;
   onShowVestingModal?: () => void;
   onShowMonthlyAllocationModal?: () => void;
@@ -193,6 +195,12 @@ const DashboardCardWrapper: React.FC<DashboardCardWrapperProps> = ({
       case 'dashboard-customization':
         return <DashboardCustomizationCard card={card} financeData={financeData} />;
 
+      case 'emergency-fund':
+        return <EmergencyFundCard card={card} />;
+
+      case 'net-worth-projection':
+        return <NetWorthProjectionCard card={card} financeData={financeData} />;
+
       // Fallback for any unrecognized cards
       default:
         return <PlaceholderCard card={card} />;
@@ -201,7 +209,7 @@ const DashboardCardWrapper: React.FC<DashboardCardWrapperProps> = ({
 
   return (
     <div className={`relative ${getSizeClass(card.size)}`}>
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 h-full overflow-hidden">
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 min-h-0 flex flex-col">
         {/* Card Header */}
         <div className="flex items-center justify-between p-4 border-b border-gray-100">
           <h3 className="text-lg font-semibold text-gray-900">
@@ -254,7 +262,7 @@ const DashboardCardWrapper: React.FC<DashboardCardWrapperProps> = ({
         </div>
         
         {/* Card Content */}
-        <div className="p-4 h-full">
+        <div className="p-4 flex-1 min-h-0">
           {renderCardContent()}
         </div>
       </div>

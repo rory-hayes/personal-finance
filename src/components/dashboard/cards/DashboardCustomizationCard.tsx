@@ -6,7 +6,7 @@ interface DashboardCustomizationCardProps {
   financeData: any;
 }
 
-const DashboardCustomizationCard: React.FC<DashboardCustomizationCardProps> = ({ card, financeData }) => {
+const DashboardCustomizationCard: React.FC<DashboardCustomizationCardProps> = () => {
   const [selectedTheme, setSelectedTheme] = useState('light');
   const [gridColumns, setGridColumns] = useState(12);
   const [cardSpacing, setCardSpacing] = useState(24);
