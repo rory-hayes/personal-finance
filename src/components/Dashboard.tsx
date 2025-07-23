@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { 
   Settings, 
   Plus, 
@@ -21,19 +21,34 @@ import {
   getCardDefinition 
 } from '../types/dashboard';
 
-// Import all card components
+// Import card wrapper component
 import DashboardCardWrapper from './dashboard/DashboardCardWrapper';
-import * as Cards from './dashboard/cards';
+import VestingScheduleModal from './dashboard/cards/VestingScheduleModal';
 
 const Dashboard: React.FC = () => {
   // Get financial data
   const financeData = useFinanceData();
   
-  // Dashboard state
-  const [currentLayout, setCurrentLayout] = useState<DashboardLayout>(DEFAULT_LAYOUTS[0]);
+  // Dashboard state with persistence
+  const [currentLayout, setCurrentLayout] = useState<DashboardLayout>(() => {
+    // Load from localStorage on startup
+    const saved = localStorage.getItem('dashboard-layout');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (error) {
+        console.error('Error loading dashboard layout:', error);
+      }
+    }
+    return DEFAULT_LAYOUTS[0];
+  });
+  
   const [editMode, setEditMode] = useState(false);
   const [showAddCardModal, setShowAddCardModal] = useState(false);
   const [selectedTimeRange, setSelectedTimeRange] = useState<'current' | '3months' | '6months' | '12months'>('current');
+  
+  // Multi-select state for Add Card modal
+  const [selectedCards, setSelectedCards] = useState<Set<CardType>>(new Set());
   
   // Modals for dashboard actions
   const [showVestingModal, setShowVestingModal] = useState(false);
@@ -42,6 +57,11 @@ const Dashboard: React.FC = () => {
 
   // Get current user
   const currentUser = financeData.users[0] || { id: 'anonymous-user', name: 'User' };
+
+  // Save layout to localStorage whenever it changes
+  useEffect(() => {
+    localStorage.setItem('dashboard-layout', JSON.stringify(currentLayout));
+  }, [currentLayout]);
 
   // Filter cards by category for add modal
   const cardsByCategory = useMemo(() => {
@@ -52,7 +72,74 @@ const Dashboard: React.FC = () => {
     }, {} as Record<string, typeof CARD_DEFINITIONS>);
   }, []);
 
-  // Add card to dashboard
+  // Save dashboard layout
+  const saveDashboardLayout = async () => {
+    try {
+      // In a real app, this would save to the backend
+      // For now, we're already saving to localStorage in the useEffect
+      console.log('Dashboard layout saved');
+      setEditMode(false);
+    } catch (error) {
+      console.error('Error saving dashboard layout:', error);
+      alert('Error saving dashboard layout. Please try again.');
+    }
+  };
+
+  // Toggle card selection in Add Card modal
+  const toggleCardSelection = (cardType: CardType) => {
+    const newSelection = new Set(selectedCards);
+    if (newSelection.has(cardType)) {
+      newSelection.delete(cardType);
+    } else {
+      newSelection.add(cardType);
+    }
+    setSelectedCards(newSelection);
+  };
+
+  // Add selected cards to dashboard
+  const addSelectedCards = () => {
+    if (selectedCards.size === 0) {
+      alert('Please select at least one card to add');
+      return;
+    }
+
+    const newCards: DashboardCard[] = [];
+    selectedCards.forEach(cardType => {
+      const definition = getCardDefinition(cardType);
+      if (definition) {
+        const newCard: DashboardCard = {
+          id: `card-${Date.now()}-${cardType}-${Math.random().toString(36).substr(2, 9)}`,
+          type: cardType,
+          title: definition.title,
+          size: definition.defaultSize,
+          visible: true,
+          position: { x: 0, y: currentLayout.cards.length + newCards.length },
+          config: {
+            timeRange: selectedTimeRange,
+            chartType: definition.chartTypes[0],
+            showActions: true
+          }
+        };
+        newCards.push(newCard);
+      }
+    });
+
+    setCurrentLayout(prev => ({
+      ...prev,
+      cards: [...prev.cards, ...newCards]
+    }));
+
+    // Clear selection and close modal
+    setSelectedCards(new Set());
+    setShowAddCardModal(false);
+  };
+
+  // Check if card is already in dashboard
+  const isCardInDashboard = (cardType: CardType): boolean => {
+    return currentLayout.cards.some(card => card.type === cardType);
+  };
+
+  // Legacy single-card add function (kept for compatibility)
   const addCard = (cardType: CardType, size?: CardSize) => {
     const definition = getCardDefinition(cardType);
     if (!definition) return;
@@ -63,7 +150,7 @@ const Dashboard: React.FC = () => {
       title: definition.title,
       size: size || definition.defaultSize,
       visible: true,
-      position: { x: 0, y: currentLayout.cards.length }, // Auto-position
+      position: { x: 0, y: currentLayout.cards.length },
       config: {
         timeRange: selectedTimeRange,
         chartType: definition.chartTypes[0],
@@ -190,7 +277,13 @@ const Dashboard: React.FC = () => {
           
           {/* Edit Mode Toggle */}
           <button
-            onClick={() => setEditMode(!editMode)}
+            onClick={() => {
+              if (editMode) {
+                saveDashboardLayout();
+              } else {
+                setEditMode(true);
+              }
+            }}
             className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
               editMode 
                 ? 'bg-green-600 text-white hover:bg-green-700' 
@@ -213,17 +306,17 @@ const Dashboard: React.FC = () => {
       </div>
 
       {/* Dashboard Grid */}
-      <div className="grid grid-cols-4 gap-6 auto-rows-min">
+      <div className="grid grid-cols-12 gap-6 auto-rows-min">
         {currentLayout.cards
           .filter(card => card.visible)
           .map((card) => (
             <DashboardCardWrapper
               key={card.id}
               card={card}
-              editMode={editMode}
+              isEditMode={editMode}
               onResize={resizeCard}
               onRemove={removeCard}
-              onUpdate={updateCard}
+              onConfigure={updateCard}
               financeData={financeData}
               onShowVestingModal={() => setShowVestingModal(true)}
             />
@@ -246,19 +339,54 @@ const Dashboard: React.FC = () => {
         </div>
       )}
 
-      {/* Add Card Modal */}
+      {/* Add Card Modal - Enhanced with Multi-Select */}
       {showAddCardModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-xl p-6 w-full max-w-6xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-6">
-              <h2 className="text-2xl font-bold text-gray-900">Add Dashboard Card</h2>
-              <button
-                onClick={() => setShowAddCardModal(false)}
-                className="p-2 text-gray-400 hover:text-gray-600 transition-colors"
-              >
-                <X className="h-6 w-6" />
-              </button>
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900">Add Dashboard Cards</h2>
+                <p className="text-gray-600 mt-1">
+                  Click cards to select them, then click "Add Selected Cards" to add them to your dashboard
+                </p>
+              </div>
+              <div className="flex items-center gap-3">
+                {/* Add Selected Cards Button */}
+                {selectedCards.size > 0 && (
+                  <button
+                    onClick={addSelectedCards}
+                    className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  >
+                    <Plus className="h-4 w-4" />
+                    Add Selected Cards ({selectedCards.size})
+                  </button>
+                )}
+                <button
+                  onClick={() => {
+                    setShowAddCardModal(false);
+                    setSelectedCards(new Set());
+                  }}
+                  className="p-2 text-gray-400 hover:text-gray-600 transition-colors"
+                >
+                  <X className="h-6 w-6" />
+                </button>
+              </div>
             </div>
+            
+            {/* Selected Cards Count */}
+            {selectedCards.size > 0 && (
+              <div className="mb-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                <p className="text-blue-800 text-sm">
+                  <strong>{selectedCards.size}</strong> card{selectedCards.size !== 1 ? 's' : ''} selected
+                  <button
+                    onClick={() => setSelectedCards(new Set())}
+                    className="ml-3 text-blue-600 hover:text-blue-700 underline text-sm"
+                  >
+                    Clear Selection
+                  </button>
+                </p>
+              </div>
+            )}
             
             {Object.entries(cardsByCategory).map(([category, cards]) => (
               <div key={category} className="mb-8">
@@ -266,28 +394,55 @@ const Dashboard: React.FC = () => {
                   {category} Cards
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {cards.map((cardDef) => (
-                    <div
-                      key={cardDef.type}
-                      className="border border-gray-200 rounded-lg p-4 hover:border-blue-300 hover:shadow-md transition-all cursor-pointer"
-                      onClick={() => addCard(cardDef.type)}
-                    >
-                      <h4 className="font-semibold text-gray-900 mb-2">{cardDef.title}</h4>
-                      <p className="text-sm text-gray-600 mb-4">{cardDef.description}</p>
-                      <div className="flex items-center justify-between">
-                        <div className="flex gap-1">
-                          {cardDef.chartTypes.slice(0, 3).map(chartType => (
-                            <span key={chartType} className="px-2 py-1 text-xs bg-gray-100 text-gray-600 rounded">
-                              {chartType}
-                            </span>
-                          ))}
+                  {cards.map((cardDef) => {
+                    const isSelected = selectedCards.has(cardDef.type);
+                    const isAlreadyInDashboard = isCardInDashboard(cardDef.type);
+                    
+                    return (
+                      <div
+                        key={cardDef.type}
+                        className={`border-2 rounded-lg p-4 transition-all cursor-pointer ${
+                          isAlreadyInDashboard 
+                            ? 'border-gray-200 bg-gray-50 opacity-50 cursor-not-allowed'
+                            : isSelected
+                              ? 'border-blue-500 bg-blue-50 shadow-md'
+                              : 'border-gray-200 hover:border-blue-300 hover:shadow-md'
+                        }`}
+                        onClick={() => {
+                          if (!isAlreadyInDashboard) {
+                            toggleCardSelection(cardDef.type);
+                          }
+                        }}
+                      >
+                        <div className="flex items-start justify-between mb-2">
+                          <h4 className="font-semibold text-gray-900">{cardDef.title}</h4>
+                          {isSelected && (
+                            <div className="w-5 h-5 bg-blue-600 rounded-full flex items-center justify-center">
+                              <X className="h-3 w-3 text-white rotate-45" />
+                            </div>
+                          )}
+                          {isAlreadyInDashboard && (
+                            <div className="text-xs text-gray-500 bg-gray-200 px-2 py-1 rounded">
+                              Added
+                            </div>
+                          )}
                         </div>
-                        <span className="text-xs text-blue-600 font-medium">
-                          {cardDef.defaultSize}
-                        </span>
+                        <p className="text-sm text-gray-600 mb-4">{cardDef.description}</p>
+                        <div className="flex items-center justify-between">
+                          <div className="flex gap-1">
+                            {cardDef.chartTypes.slice(0, 3).map(chartType => (
+                              <span key={chartType} className="px-2 py-1 text-xs bg-gray-100 text-gray-600 rounded">
+                                {chartType}
+                              </span>
+                            ))}
+                          </div>
+                          <span className="text-xs text-blue-600 font-medium">
+                            {cardDef.defaultSize}
+                          </span>
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             ))}
@@ -404,7 +559,7 @@ const Dashboard: React.FC = () => {
       )}
 
       {/* Vesting Schedule Modal */}
-      <Cards.VestingScheduleModal 
+      <VestingScheduleModal 
         isOpen={showVestingModal}
         onClose={() => setShowVestingModal(false)}
         onSubmit={financeData.addVestingSchedule}
