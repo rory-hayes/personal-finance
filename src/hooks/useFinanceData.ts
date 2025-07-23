@@ -833,6 +833,35 @@ export const useFinanceData = () => {
     }
   }, [vestingSchedules]);
 
+  const deleteVestingSchedule = useCallback(async (scheduleId: string) => {
+    try {
+      if (!isSupabaseReady) {
+        // Use local storage fallback
+        const updatedSchedules = vestingSchedules.filter(schedule => schedule.id !== scheduleId);
+        setVestingSchedules(updatedSchedules);
+        localStorage.setItem('financeApp_vestingSchedules', JSON.stringify(updatedSchedules));
+        return;
+      }
+
+      const { error } = await supabase
+        .from('vesting_schedules')
+        .delete()
+        .eq('id', scheduleId);
+
+      if (error) {
+        throw error;
+      }
+
+      setVestingSchedules(prev => prev.filter(schedule => schedule.id !== scheduleId));
+    } catch (error) {
+      console.error('Error deleting vesting schedule:', error);
+      // Fallback to localStorage
+      const updatedSchedules = vestingSchedules.filter(schedule => schedule.id !== scheduleId);
+      setVestingSchedules(updatedSchedules);
+      localStorage.setItem('financeApp_vestingSchedules', JSON.stringify(updatedSchedules));
+    }
+  }, [vestingSchedules, isSupabaseReady]);
+
   const addMonthlyAllocation = useCallback(async (allocation: any) => {
     try {
       if (!isSupabaseReady) {
@@ -1140,6 +1169,7 @@ export const useFinanceData = () => {
     updateAccount,
     allocateToAccount,
     addVestingSchedule,
+    deleteVestingSchedule,
     addMonthlyAllocation,
     createMonthlyBudget,
     assignMainAccount,

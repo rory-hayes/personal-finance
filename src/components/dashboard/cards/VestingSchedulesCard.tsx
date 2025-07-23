@@ -13,17 +13,15 @@ const VestingSchedulesCard: React.FC<VestingSchedulesCardProps> = ({
   financeData, 
   onShowVestingModal 
 }) => {
-  const { vestingSchedules, totalAssetValue, totalAccountBalance } = financeData;
+  const { vestingSchedules, totalAssetValue, totalAccountBalance, deleteVestingSchedule } = financeData;
   const currentNetWorth = totalAssetValue + totalAccountBalance;
 
   // Delete vesting schedule function
   const handleDeleteSchedule = async (scheduleId: string) => {
     if (window.confirm('Are you sure you want to delete this vesting schedule?')) {
       try {
-        // In a real app, this would call a delete API
-        // For now, we'll just show a success message
-        alert('Vesting schedule deleted successfully');
-        // The parent component should handle the actual deletion and data refresh
+        await deleteVestingSchedule(scheduleId);
+        // No need for alert - the UI will update automatically
       } catch (error) {
         alert('Failed to delete vesting schedule');
         console.error('Delete error:', error);
