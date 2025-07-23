@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { MoreVertical, X, Calendar, Trash2 } from 'lucide-react';
+import { MoreVertical, X, Calendar, Trash2, Maximize2, Minimize2, RotateCcw } from 'lucide-react';
 
 // Import all card components
 import MonthlyIncomeCard from './cards/MonthlyIncomeCard';
@@ -14,6 +14,7 @@ import BudgetTrackingCard from './cards/BudgetTrackingCard';
 import FinancialGoalsCard from './cards/FinancialGoalsCard';
 import FinancialHealthCard from './cards/FinancialHealthCard';
 import AccountProgressCard from './cards/AccountProgressCard';
+import AccountListCard from './cards/AccountListCard';
 import AssetsOverviewCard from './cards/AssetsOverviewCard';
 import AssetAllocationCard from './cards/AssetAllocationCard';
 import VestingSchedulesCard from './cards/VestingSchedulesCard';
@@ -91,11 +92,24 @@ const DashboardCardWrapper: React.FC<DashboardCardWrapperProps> = ({
     'goal-timeline'
   ].includes(card.type);
 
+  // Available card sizes
+  const sizeOptions = [
+    { value: 'quarter', label: 'Quarter (3 cols)', icon: <Minimize2 className="h-3 w-3" /> },
+    { value: 'half', label: 'Half (6 cols)', icon: <RotateCcw className="h-3 w-3" /> },
+    { value: 'full', label: 'Full (12 cols)', icon: <Maximize2 className="h-3 w-3" /> },
+    { value: 'tall', label: 'Tall (6 cols, 2 rows)', icon: <Maximize2 className="h-3 w-3" /> }
+  ];
+
   const handleTimeRangeChange = (newTimeRange: string) => {
     onConfigure(card.id, {
       ...card.config,
       timeRange: newTimeRange
     });
+    setShowMenu(false);
+  };
+
+  const handleSizeChange = (newSize: 'quarter' | 'half' | 'tall' | 'full') => {
+    onResize(card.id, newSize);
     setShowMenu(false);
   };
 
@@ -152,12 +166,13 @@ const DashboardCardWrapper: React.FC<DashboardCardWrapperProps> = ({
       case 'financial-health-score':
         return <FinancialHealthCard card={card} financeData={financeData} />;
       
+      // Accounts & Assets
       case 'account-progress':
         return <AccountProgressCard card={card} financeData={financeData} />;
-        
+      case 'account-list':
+        return <AccountListCard card={card} financeData={financeData} />;
       case 'assets-overview':
         return <AssetsOverviewCard card={card} financeData={financeData} />;
-      
       case 'asset-allocation':
         return <AssetAllocationCard card={card} financeData={financeData} />;
       
@@ -213,7 +228,7 @@ const DashboardCardWrapper: React.FC<DashboardCardWrapperProps> = ({
         {/* Card Header */}
         <div className="flex items-center justify-between p-4 border-b border-gray-100">
           <h3 className="text-lg font-semibold text-gray-900">
-            {cardDefinition.title}
+            {card.config?.title || cardDefinition.title}
           </h3>
           
           {/* Card Menu */}
@@ -229,24 +244,48 @@ const DashboardCardWrapper: React.FC<DashboardCardWrapperProps> = ({
             {showMenu && (
               <div
                 ref={menuRef}
-                className="absolute right-0 top-full mt-1 w-48 bg-white border border-gray-200 rounded-lg shadow-lg z-50"
+                className="absolute right-0 top-full mt-1 w-56 bg-white border border-gray-200 rounded-lg shadow-lg z-50"
               >
-                {supportsTimeRange && (
-                  <div className="p-2 border-b border-gray-100">
-                    <div className="text-xs font-medium text-gray-700 mb-2">Time Range</div>
-                    {timeRangeOptions.map((option) => (
+                {/* Card Size Options */}
+                <div className="p-2 border-b border-gray-100">
+                  <div className="text-xs font-medium text-gray-700 mb-2">Card Size</div>
+                  <div className="space-y-1">
+                    {sizeOptions.map((option) => (
                       <button
                         key={option.value}
-                        onClick={() => handleTimeRangeChange(option.value)}
-                        className={`w-full text-left px-2 py-1 text-sm rounded hover:bg-gray-100 ${
-                          currentTimeRange === option.value ? 'bg-blue-50 text-blue-700' : 'text-gray-700'
+                        onClick={() => handleSizeChange(option.value as any)}
+                        className={`w-full text-left px-2 py-1 text-sm rounded hover:bg-gray-100 flex items-center gap-2 ${
+                          card.size === option.value ? 'bg-blue-50 text-blue-700' : 'text-gray-700'
                         }`}
                       >
+                        {option.icon}
                         {option.label}
                       </button>
                     ))}
                   </div>
+                </div>
+
+                {/* Time Range Options (if supported) */}
+                {supportsTimeRange && (
+                  <div className="p-2 border-b border-gray-100">
+                    <div className="text-xs font-medium text-gray-700 mb-2">Time Range</div>
+                    <div className="space-y-1">
+                      {timeRangeOptions.map((option) => (
+                        <button
+                          key={option.value}
+                          onClick={() => handleTimeRangeChange(option.value)}
+                          className={`w-full text-left px-2 py-1 text-sm rounded hover:bg-gray-100 ${
+                            currentTimeRange === option.value ? 'bg-blue-50 text-blue-700' : 'text-gray-700'
+                          }`}
+                        >
+                          {option.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                 )}
+
+                {/* Remove Card */}
                 <div className="p-1">
                   <button
                     onClick={handleRemoveCard}
@@ -266,50 +305,6 @@ const DashboardCardWrapper: React.FC<DashboardCardWrapperProps> = ({
           {renderCardContent()}
         </div>
       </div>
-      
-      {/* Edit Mode Overlay */}
-      {isEditMode && (
-        <div className="absolute inset-0 bg-blue-500 bg-opacity-10 border-2 border-blue-500 border-dashed rounded-lg flex items-center justify-center z-10">
-          <div className="flex gap-2">
-            <button
-              onClick={() => onResize(card.id, 'quarter')}
-              className={`px-3 py-1 text-sm rounded ${
-                card.size === 'quarter' 
-                  ? 'bg-blue-500 text-white' 
-                  : 'bg-white text-blue-500 border border-blue-500'
-              }`}
-            >
-              Quarter
-            </button>
-            <button
-              onClick={() => onResize(card.id, 'half')}
-              className={`px-3 py-1 text-sm rounded ${
-                card.size === 'half' 
-                  ? 'bg-blue-500 text-white' 
-                  : 'bg-white text-blue-500 border border-blue-500'
-              }`}
-            >
-              Half
-            </button>
-            <button
-              onClick={() => onResize(card.id, 'full')}
-              className={`px-3 py-1 text-sm rounded ${
-                card.size === 'full' 
-                  ? 'bg-blue-500 text-white' 
-                  : 'bg-white text-blue-500 border border-blue-500'
-              }`}
-            >
-              Full
-            </button>
-            <button
-              onClick={() => onRemove(card.id)}
-              className="px-3 py-1 text-sm bg-red-500 text-white rounded hover:bg-red-600"
-            >
-              <X className="h-4 w-4" />
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

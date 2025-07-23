@@ -22,6 +22,7 @@ export type CardType =
   
   // Accounts & Assets
   | 'account-progress'
+  | 'account-list'
   | 'assets-overview'
   | 'asset-allocation'
   
@@ -46,17 +47,21 @@ export type TimeRange = 'current' | '3months' | '6months' | '12months' | 'ytd' |
 export interface DashboardCard {
   id: string;
   type: CardType;
-  title: string;
+  title?: string;
   size: CardSize;
-  visible: boolean;
+  visible?: boolean;
   position: {
     x: number;
     y: number;
+    w?: number;
+    h?: number;
   };
   config: {
-    timeRange: TimeRange;
-    chartType: ChartType;
-    showActions: boolean;
+    title?: string;
+    timeRange?: TimeRange;
+    chartType?: ChartType;
+    showActions?: boolean;
+    visible?: boolean;
     customSettings?: Record<string, any>;
   };
 }
@@ -73,6 +78,24 @@ export interface DashboardLayout {
   };
 }
 
+// Configuration interface for useDashboardConfig hook
+export interface DashboardConfiguration {
+  id: string;
+  userId: string;
+  name: string;
+  isDefault: boolean;
+  layoutConfig: {
+    cards: DashboardCard[];
+    settings: {
+      gridColumns: number;
+      cardSpacing: number;
+      theme: 'light' | 'dark';
+    };
+  };
+  createdAt: string;
+  updatedAt: string;
+}
+
 // Card Information for UI
 export interface CardDefinition {
   type: CardType;
@@ -83,6 +106,30 @@ export interface CardDefinition {
   dataSource: string[];
   chartTypes: ChartType[];
 }
+
+// Default cards for useDashboardConfig hook
+export const DEFAULT_CARDS: Partial<DashboardCard>[] = [
+  {
+    type: 'monthly-income',
+    size: 'quarter',
+    config: { chartType: 'number', timeRange: 'current', visible: true }
+  },
+  {
+    type: 'monthly-spending',
+    size: 'quarter',
+    config: { chartType: 'number', timeRange: 'current', visible: true }
+  },
+  {
+    type: 'monthly-savings',
+    size: 'quarter',
+    config: { chartType: 'number', timeRange: 'current', visible: true }
+  },
+  {
+    type: 'net-worth',
+    size: 'quarter',
+    config: { chartType: 'number', timeRange: 'current', visible: true }
+  }
+];
 
 // Predefined Card Definitions
 export const CARD_DEFINITIONS: CardDefinition[] = [
@@ -209,6 +256,15 @@ export const CARD_DEFINITIONS: CardDefinition[] = [
     category: 'assets',
     dataSource: ['accounts', 'transactions'],
     chartTypes: ['line', 'bar']
+  },
+  {
+    type: 'account-list',
+    title: 'Account List',
+    description: 'Complete list of all accounts with balances and activity',
+    defaultSize: 'half',
+    category: 'assets',
+    dataSource: ['accounts', 'transactions', 'users'],
+    chartTypes: ['table']
   },
   {
     type: 'assets-overview',
@@ -412,14 +468,14 @@ export const DEFAULT_LAYOUTS: DashboardLayout[] = [
       }
     ],
     settings: {
-      gridColumns: 4,
+      gridColumns: 12,
       cardSpacing: 24,
       theme: 'light'
     }
   }
 ];
 
-// Helper function to get card definition
+// Utility function to get card definition by type
 export const getCardDefinition = (type: CardType): CardDefinition | undefined => {
   return CARD_DEFINITIONS.find(def => def.type === type);
 }; 

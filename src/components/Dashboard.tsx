@@ -1,9 +1,7 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo } from 'react';
 import { 
   Settings, 
   Plus, 
-  Edit3, 
-  Save,
   LayoutGrid,
   X,
   Grid,
@@ -11,12 +9,12 @@ import {
   Download
 } from 'lucide-react';
 import { useFinanceData } from '../hooks/useFinanceData';
+import { useDashboardConfig } from '../hooks/useDashboardConfig';
+import { useAuth } from '../contexts/AuthContext';
 import { 
   CardType, 
   CardSize, 
   DashboardCard, 
-  DashboardLayout, 
-  DEFAULT_LAYOUTS, 
   CARD_DEFINITIONS,
   getCardDefinition 
 } from '../types/dashboard';
@@ -26,24 +24,20 @@ import DashboardCardWrapper from './dashboard/DashboardCardWrapper';
 import VestingScheduleModal from './dashboard/cards/VestingScheduleModal';
 
 const Dashboard: React.FC = () => {
-  // Get financial data
+  // Get financial data and auth
   const financeData = useFinanceData();
+  const { user } = useAuth();
   
-  // Dashboard state with persistence
-  const [currentLayout, setCurrentLayout] = useState<DashboardLayout>(() => {
-    // Load from localStorage on startup
-    const saved = localStorage.getItem('dashboard-layout');
-    if (saved) {
-      try {
-        return JSON.parse(saved);
-      } catch (error) {
-        console.error('Error loading dashboard layout:', error);
-      }
-    }
-    return DEFAULT_LAYOUTS[0];
-  });
+  // Use dashboard config hook for database persistence
+  const {
+    currentConfig,
+    loading: configLoading,
+    addCard: addCardToConfig,
+    removeCard: removeCardFromConfig,
+    updateCard: updateCardInConfig,
+    resizeCard: resizeCardInConfig
+  } = useDashboardConfig(user?.id || 'anonymous');
   
-  const [editMode, setEditMode] = useState(false);
   const [showAddCardModal, setShowAddCardModal] = useState(false);
   const [selectedTimeRange, setSelectedTimeRange] = useState<'current' | '3months' | '6months' | '12months'>('current');
   
@@ -58,11 +52,6 @@ const Dashboard: React.FC = () => {
   // Get current user
   const currentUser = financeData.users[0] || { id: 'anonymous-user', name: 'User' };
 
-  // Save layout to localStorage whenever it changes
-  useEffect(() => {
-    localStorage.setItem('dashboard-layout', JSON.stringify(currentLayout));
-  }, [currentLayout]);
-
   // Filter cards by category for add modal
   const cardsByCategory = useMemo(() => {
     const categories = ['essential', 'spending', 'planning', 'assets', 'advanced'] as const;
@@ -71,19 +60,6 @@ const Dashboard: React.FC = () => {
       return acc;
     }, {} as Record<string, typeof CARD_DEFINITIONS>);
   }, []);
-
-  // Save dashboard layout
-  const saveDashboardLayout = async () => {
-    try {
-      // In a real app, this would save to the backend
-      // For now, we're already saving to localStorage in the useEffect
-      console.log('Dashboard layout saved');
-      setEditMode(false);
-    } catch (error) {
-      console.error('Error saving dashboard layout:', error);
-      alert('Error saving dashboard layout. Please try again.');
-    }
-  };
 
   // Toggle card selection in Add Card modal
   const toggleCardSelection = (cardType: CardType) => {
@@ -97,37 +73,19 @@ const Dashboard: React.FC = () => {
   };
 
   // Add selected cards to dashboard
-  const addSelectedCards = () => {
+  const addSelectedCards = async () => {
     if (selectedCards.size === 0) {
       alert('Please select at least one card to add');
       return;
     }
 
-    const newCards: DashboardCard[] = [];
-    selectedCards.forEach(cardType => {
+    // Add each selected card to the database
+    for (const cardType of selectedCards) {
       const definition = getCardDefinition(cardType);
       if (definition) {
-        const newCard: DashboardCard = {
-          id: `card-${Date.now()}-${cardType}-${Math.random().toString(36).substr(2, 9)}`,
-          type: cardType,
-          title: definition.title,
-          size: definition.defaultSize,
-          visible: true,
-          position: { x: 0, y: currentLayout.cards.length + newCards.length },
-          config: {
-            timeRange: selectedTimeRange,
-            chartType: definition.chartTypes[0],
-            showActions: true
-          }
-        };
-        newCards.push(newCard);
+        await addCardToConfig(cardType, definition.defaultSize);
       }
-    });
-
-    setCurrentLayout(prev => ({
-      ...prev,
-      cards: [...prev.cards, ...newCards]
-    }));
+    }
 
     // Clear selection and close modal
     setSelectedCards(new Set());
@@ -136,56 +94,31 @@ const Dashboard: React.FC = () => {
 
   // Check if card is already in dashboard
   const isCardInDashboard = (cardType: CardType): boolean => {
-    return currentLayout.cards.some(card => card.type === cardType);
+    return currentConfig?.layoutConfig.cards.some(card => card.type === cardType) || false;
   };
 
   // Legacy single-card add function (kept for compatibility)
-  const addCard = (cardType: CardType, size?: CardSize) => {
+  const addCard = async (cardType: CardType, size?: CardSize) => {
     const definition = getCardDefinition(cardType);
     if (!definition) return;
 
-    const newCard: DashboardCard = {
-      id: `card-${Date.now()}-${cardType}`,
-      type: cardType,
-      title: definition.title,
-      size: size || definition.defaultSize,
-      visible: true,
-      position: { x: 0, y: currentLayout.cards.length },
-      config: {
-        timeRange: selectedTimeRange,
-        chartType: definition.chartTypes[0],
-        showActions: true
-      }
-    };
-
-    setCurrentLayout(prev => ({
-      ...prev,
-      cards: [...prev.cards, newCard]
-    }));
+    await addCardToConfig(cardType, size || definition.defaultSize);
     setShowAddCardModal(false);
   };
 
   // Remove card from dashboard
-  const removeCard = (cardId: string) => {
-    setCurrentLayout(prev => ({
-      ...prev,
-      cards: prev.cards.filter(card => card.id !== cardId)
-    }));
+  const removeCard = async (cardId: string) => {
+    await removeCardFromConfig(cardId);
   };
 
   // Update card (resize, configure, etc.)
-  const updateCard = (cardId: string, updates: Partial<DashboardCard>) => {
-    setCurrentLayout(prev => ({
-      ...prev,
-      cards: prev.cards.map(card => 
-        card.id === cardId ? { ...card, ...updates } : card
-      )
-    }));
+  const updateCard = async (cardId: string, updates: Partial<DashboardCard>) => {
+    await updateCardInConfig(cardId, updates);
   };
 
   // Resize card
-  const resizeCard = (cardId: string, newSize: CardSize) => {
-    updateCard(cardId, { size: newSize });
+  const resizeCard = async (cardId: string, newSize: CardSize) => {
+    await resizeCardInConfig(cardId, newSize);
   };
 
   // Handle monthly allocation
@@ -233,6 +166,20 @@ const Dashboard: React.FC = () => {
     }
   };
 
+  // Show loading state
+  if (configLoading) {
+    return (
+      <div className="p-8 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading dashboard...</p>
+        </div>
+      </div>
+    );
+  }
+
+  const currentCards = currentConfig?.layoutConfig.cards || [];
+
   return (
     <div className="p-8 max-w-full">
       {/* Header */}
@@ -240,7 +187,7 @@ const Dashboard: React.FC = () => {
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Financial Dashboard</h1>
           <p className="text-gray-600 mt-2">
-            Complete overview of your financial health • {currentLayout.name}
+            Complete overview of your financial health • {currentConfig?.name || 'Loading...'}
           </p>
         </div>
         
@@ -274,46 +221,18 @@ const Dashboard: React.FC = () => {
             <Plus className="h-4 w-4" />
             Add Card
           </button>
-          
-          {/* Edit Mode Toggle */}
-          <button
-            onClick={() => {
-              if (editMode) {
-                saveDashboardLayout();
-              } else {
-                setEditMode(true);
-              }
-            }}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
-              editMode 
-                ? 'bg-green-600 text-white hover:bg-green-700' 
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-            }`}
-          >
-            {editMode ? (
-              <>
-                <Save className="h-4 w-4" />
-                Done Editing
-              </>
-            ) : (
-              <>
-                <Edit3 className="h-4 w-4" />
-                Edit Layout
-              </>
-            )}
-          </button>
         </div>
       </div>
 
       {/* Dashboard Grid */}
-              <div className="grid grid-cols-12 gap-6 auto-rows-max">
-        {currentLayout.cards
-          .filter(card => card.visible)
+      <div className="grid grid-cols-12 gap-6 auto-rows-max">
+        {currentCards
+          .filter(card => card.config?.visible !== false)
           .map((card) => (
             <DashboardCardWrapper
               key={card.id}
               card={card}
-              isEditMode={editMode}
+              isEditMode={false}
               onResize={resizeCard}
               onRemove={removeCard}
               onConfigure={updateCard}
@@ -324,7 +243,7 @@ const Dashboard: React.FC = () => {
       </div>
 
       {/* Empty State */}
-      {currentLayout.cards.filter(card => card.visible).length === 0 && (
+      {currentCards.filter(card => card.config?.visible !== false).length === 0 && (
         <div className="text-center py-16">
           <LayoutGrid className="h-16 w-16 text-gray-400 mx-auto mb-4" />
           <h3 className="text-xl font-semibold text-gray-900 mb-2">Your dashboard is empty</h3>
