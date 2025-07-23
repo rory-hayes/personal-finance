@@ -120,8 +120,18 @@ export const DEFAULT_CARDS: Partial<DashboardCard>[] = [
     type: 'expense-categories',
     size: 'half',
     config: {
-      title: 'Expense Categories',
+      title: 'Expense Trend',
       chartType: 'bar',
+      timeRange: '6months',
+      visible: true
+    }
+  },
+  {
+    type: 'accounts',
+    size: 'half',
+    config: {
+      title: 'Monthly Account Progress',
+      chartType: 'line',
       timeRange: '6months',
       visible: true
     }
@@ -132,6 +142,26 @@ export const DEFAULT_CARDS: Partial<DashboardCard>[] = [
     config: {
       title: 'Financial Goals',
       chartType: 'progress',
+      timeRange: 'current',
+      visible: true
+    }
+  },
+  {
+    type: 'assets',
+    size: 'half',
+    config: {
+      title: 'Assets Overview',
+      chartType: 'pie',
+      timeRange: 'current',
+      visible: true
+    }
+  },
+  {
+    type: 'vesting',
+    size: 'half',
+    config: {
+      title: 'Share Vesting Tracker',
+      chartType: 'line',
       timeRange: 'current',
       visible: true
     }

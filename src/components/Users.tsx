@@ -93,6 +93,7 @@ const Users: React.FC = () => {
 
   const accountTypeIcons = {
     main: Wallet,
+    checking: Wallet,
     savings: DollarSign,
     investment: TrendingUp,
     retirement: Target,
@@ -102,6 +103,7 @@ const Users: React.FC = () => {
 
   const accountTypeLabels = {
     main: 'Main Account',
+    checking: 'Checking',
     savings: 'Savings',
     investment: 'Investment',
     retirement: 'Retirement',
@@ -255,7 +257,7 @@ const Users: React.FC = () => {
         {accounts.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {accounts.map((account) => {
-              const IconComponent = accountTypeIcons[account.type];
+              const IconComponent = accountTypeIcons[account.type] || Wallet; // Fallback to Wallet icon
               return (
                 <div key={account.id} className="bg-gray-50 rounded-lg p-4 border border-gray-200">
                   <div className="flex items-center justify-between mb-3">

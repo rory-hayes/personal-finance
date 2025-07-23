@@ -379,7 +379,9 @@ export const useFinanceData = () => {
           monthlyAmount: v.monthly_amount,
           startDate: v.start_date,
           endDate: v.end_date,
-          description: v.description
+          description: v.description,
+          cliffAmount: v.cliff_amount,
+          cliffPeriod: v.cliff_period
         })));
       }
     } catch (error) {

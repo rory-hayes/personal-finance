@@ -38,7 +38,7 @@ export interface Goal {
 export interface Account {
   id: string;
   name: string;
-  type: 'main' | 'savings' | 'investment' | 'retirement' | 'shares' | 'other';
+  type: 'main' | 'checking' | 'savings' | 'investment' | 'retirement' | 'shares' | 'other';
   balance: number;
   userId?: string;
   color: string;
@@ -98,3 +98,6 @@ export interface BudgetCategory {
   createdAt: string;
   updatedAt: string;
 }
+
+// Dashboard types
+export * from './dashboard';
