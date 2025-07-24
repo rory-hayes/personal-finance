@@ -52,73 +52,113 @@ export const useDashboardConfig = (userId: string) => {
       setLoading(true);
       console.log('🔍 Loading dashboard configurations for user:', userId);
 
-      if (isSupabaseMock) {
-        console.log('⚠️ Running in mock mode, using localStorage');
-        // Use localStorage fallback
+      // Helper function to load from localStorage
+      const loadFromLocalStorage = () => {
+        console.log('🔄 Loading from localStorage');
+        try {
+          const savedConfigs = localStorage.getItem(`dashboardConfigs_${userId}`);
+          let configs = savedConfigs ? JSON.parse(savedConfigs) : [];
+          
+          if (configs.length === 0) {
+            // Create default configuration
+            const defaultConfig = createDefaultConfiguration(userId);
+            configs = [defaultConfig];
+            localStorage.setItem(`dashboardConfigs_${userId}`, JSON.stringify(configs));
+          }
+          
+          setConfigurations(configs);
+          setCurrentConfig(configs.find((c: DashboardConfiguration) => c.isDefault) || configs[0]);
+          console.log('✅ Loaded configurations from localStorage:', configs.length, 'configs');
+          return configs;
+        } catch (parseError) {
+          console.error('💥 Error parsing localStorage configs:', parseError);
+          const defaultConfig = createDefaultConfiguration(userId);
+          const configs = [defaultConfig];
+          localStorage.setItem(`dashboardConfigs_${userId}`, JSON.stringify(configs));
+          setConfigurations(configs);
+          setCurrentConfig(defaultConfig);
+          return configs;
+        }
+      };
+
+      // For mock mode or invalid/anonymous users, use localStorage only
+      if (isSupabaseMock || !userId || userId === 'anonymous' || userId.length < 10) {
+        console.log('⚠️ Using localStorage only (mock mode or invalid user)');
+        loadFromLocalStorage();
+        return;
+      }
+
+      // Try to load from database first
+      try {
+        const { data, error } = await supabase
+          .from('dashboard_configurations')
+          .select('*')
+          .eq('user_id', userId)
+          .order('created_at', { ascending: false });
+
+        if (error) {
+          console.error('❌ Database error loading configurations:', error);
+          // Fall back to localStorage
+          loadFromLocalStorage();
+          return;
+        }
+
+        if (!data || data.length === 0) {
+          console.log('📝 No configurations found in database');
+          
+          // Check localStorage first before creating new
+          const localConfigs = loadFromLocalStorage();
+          if (localConfigs.length > 0) {
+            console.log('📂 Found configurations in localStorage, using them');
+            // Note: We'll let the save operations handle database sync later
+            return;
+          }
+
+          // Create default configuration if nothing exists
+          console.log('📝 Creating default configuration');
+          const defaultConfig = createDefaultConfiguration(userId);
+          setConfigurations([defaultConfig]);
+          setCurrentConfig(defaultConfig);
+          localStorage.setItem(`dashboardConfigs_${userId}`, JSON.stringify([defaultConfig]));
+          return;
+        }
+
+        const configs = data.map(mapDatabaseToConfig);
+        setConfigurations(configs);
+        setCurrentConfig(configs.find((c: DashboardConfiguration) => c.isDefault) || configs[0]);
+        console.log('✅ Loaded configurations from database:', configs.length, 'configs');
+
+        // Also save to localStorage as backup
+        localStorage.setItem(`dashboardConfigs_${userId}`, JSON.stringify(configs));
+
+      } catch (dbError) {
+        console.error('💥 Database connection failed:', dbError);
+        loadFromLocalStorage();
+      }
+
+    } catch (error) {
+      console.error('💥 Error loading dashboard configurations:', error);
+      
+      // Final fallback to localStorage
+      try {
         const savedConfigs = localStorage.getItem(`dashboardConfigs_${userId}`);
-        const configs = savedConfigs ? JSON.parse(savedConfigs) : [];
+        let configs = savedConfigs ? JSON.parse(savedConfigs) : [];
         
         if (configs.length === 0) {
-          // Create default configuration
           const defaultConfig = createDefaultConfiguration(userId);
-          configs.push(defaultConfig);
+          configs = [defaultConfig];
           localStorage.setItem(`dashboardConfigs_${userId}`, JSON.stringify(configs));
         }
         
         setConfigurations(configs);
         setCurrentConfig(configs.find((c: DashboardConfiguration) => c.isDefault) || configs[0]);
-        setLoading(false);
-        return;
-      }
-
-      // Try to load from database first
-      const { data, error } = await supabase
-        .from('dashboard_configurations')
-        .select('*')
-        .eq('user_id', userId)
-        .order('created_at', { ascending: false });
-
-      if (error) {
-        console.error('❌ Database error loading configurations:', error);
-        throw error;
-      }
-
-      if (!data || data.length === 0) {
-        console.log('📝 No configurations found, creating default');
-        // Create default configuration
+      } catch (finalError) {
+        console.error('💥 Even final fallback failed:', finalError);
+        // Create minimal default state
         const defaultConfig = createDefaultConfiguration(userId);
-        await saveConfiguration(defaultConfig);
-        return;
+        setConfigurations([defaultConfig]);
+        setCurrentConfig(defaultConfig);
       }
-
-      const configs = data.map(mapDatabaseToConfig);
-      setConfigurations(configs);
-      setCurrentConfig(configs.find((c: DashboardConfiguration) => c.isDefault) || configs[0]);
-      console.log('✅ Loaded configurations from database:', configs);
-
-    } catch (error) {
-      console.error('💥 Error loading dashboard configurations:', error);
-      console.warn('🔄 Falling back to localStorage');
-      
-      // Fallback to localStorage
-      const savedConfigs = localStorage.getItem(`dashboardConfigs_${userId}`);
-      let configs = [];
-      
-      try {
-        configs = savedConfigs ? JSON.parse(savedConfigs) : [];
-      } catch (parseError) {
-        console.error('💥 Error parsing localStorage configs:', parseError);
-        configs = [];
-      }
-      
-      if (configs.length === 0) {
-        const defaultConfig = createDefaultConfiguration(userId);
-        configs = [defaultConfig];
-        localStorage.setItem(`dashboardConfigs_${userId}`, JSON.stringify(configs));
-      }
-      
-      setConfigurations(configs);
-      setCurrentConfig(configs.find((c: DashboardConfiguration) => c.isDefault) || configs[0]);
     } finally {
       setLoading(false);
     }
@@ -128,13 +168,38 @@ export const useDashboardConfig = (userId: string) => {
   const saveConfiguration = useCallback(async (config: DashboardConfiguration) => {
     try {
       console.log('💾 Updating dashboard configuration:', config.id, config);
+      console.log('👤 User ID for save operation:', userId);
+
+      // Always try localStorage first as a fallback mechanism
+      const updateLocalStorage = () => {
+        try {
+          const configs = configurations.map(c => c.id === config.id ? config : c);
+          if (!configs.find(c => c.id === config.id)) {
+            configs.push(config);
+          }
+          localStorage.setItem(`dashboardConfigs_${userId}`, JSON.stringify(configs));
+          console.log('✅ Updated localStorage successfully');
+          return configs;
+        } catch (error) {
+          console.error('💥 localStorage update failed:', error);
+          return null;
+        }
+      };
+
+      // Update local state immediately
+      setConfigurations(prev => prev.map(c => c.id === config.id ? config : c));
+      setCurrentConfig(config);
 
       if (isSupabaseMock) {
-        console.log('⚠️ Mock mode: Saving to localStorage only');
-        const configs = configurations.map(c => c.id === config.id ? config : c);
-        setConfigurations(configs);
-        setCurrentConfig(config);
-        localStorage.setItem(`dashboardConfigs_${userId}`, JSON.stringify(configs));
+        console.log('⚠️ Mock mode: Using localStorage only');
+        updateLocalStorage();
+        return;
+      }
+
+      // For anonymous users or if userId is not a valid UUID, use localStorage only
+      if (!userId || userId === 'anonymous' || userId.length < 10) {
+        console.log('⚠️ Invalid or anonymous user ID, using localStorage only');
+        updateLocalStorage();
         return;
       }
 
@@ -176,24 +241,31 @@ export const useDashboardConfig = (userId: string) => {
 
           if (insertError) {
             console.error('❌ Error creating dashboard configuration:', insertError);
-            throw insertError;
+            console.log('🔄 Database insert failed, ensuring localStorage is updated');
+            updateLocalStorage();
+            return; // Don't throw, just use localStorage
           }
           
           console.log('✅ Created new dashboard configuration:', insertedData);
         } else {
-          throw error;
+          console.log('🔄 Database update failed, ensuring localStorage is updated');
+          updateLocalStorage();
+          return; // Don't throw, just use localStorage
         }
       } else {
         console.log('✅ Updated dashboard configuration successfully:', data);
       }
 
-      // Update local state
-      setConfigurations(prev => prev.map(c => c.id === config.id ? config : c));
-      setCurrentConfig(config);
+      // Also update localStorage as backup
+      updateLocalStorage();
 
     } catch (error) {
       console.error('💥 Error saving dashboard configuration:', error);
-      console.log('🔄 Falling back to localStorage due to database error');
+      console.log('🔄 Database operation failed, using localStorage as fallback');
+      
+      // Ensure local state is updated even if database fails
+      setConfigurations(prev => prev.map(c => c.id === config.id ? config : c));
+      setCurrentConfig(config);
       
       // Fallback to localStorage
       try {
@@ -201,8 +273,6 @@ export const useDashboardConfig = (userId: string) => {
         if (!configs.find(c => c.id === config.id)) {
           configs.push(config);
         }
-        setConfigurations(configs);
-        setCurrentConfig(config);
         localStorage.setItem(`dashboardConfigs_${userId}`, JSON.stringify(configs));
         console.log('✅ Saved to localStorage as fallback');
       } catch (localError) {

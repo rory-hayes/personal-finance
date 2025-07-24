@@ -28,6 +28,25 @@ const Dashboard: React.FC = () => {
   const financeData = useFinanceData();
   const { user } = useAuth();
   
+  // Generate a consistent user ID for dashboard configuration
+  const dashboardUserId = useMemo(() => {
+    // Use authenticated user ID if available
+    if (user?.id) {
+      return user.id;
+    }
+    
+    // For anonymous users, create/retrieve a consistent ID from localStorage
+    const anonymousId = localStorage.getItem('anonymous_dashboard_user_id');
+    if (anonymousId) {
+      return anonymousId;
+    }
+    
+    // Create new anonymous ID
+    const newAnonymousId = `anonymous_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    localStorage.setItem('anonymous_dashboard_user_id', newAnonymousId);
+    return newAnonymousId;
+  }, [user?.id]);
+
   // Use dashboard config hook for database persistence
   const {
     currentConfig,
@@ -37,7 +56,7 @@ const Dashboard: React.FC = () => {
     updateCard: updateCardInConfig,
     resizeCard: resizeCardInConfig,
     addMultipleCards: addMultipleCardsToConfig
-  } = useDashboardConfig(user?.id || 'anonymous');
+  } = useDashboardConfig(dashboardUserId);
   
   const [showAddCardModal, setShowAddCardModal] = useState(false);
   const [selectedTimeRange, setSelectedTimeRange] = useState<'current' | '3months' | '6months' | '12months'>('current');
@@ -83,6 +102,7 @@ const Dashboard: React.FC = () => {
     try {
       console.log('🔄 Adding selected cards to dashboard:', Array.from(selectedCards));
       console.log('📊 Current config before adding:', currentConfig);
+      console.log('👤 Dashboard User ID:', dashboardUserId);
       
       // Prepare cards for batch addition
       const cardsToAdd = Array.from(selectedCards).map(cardType => {
@@ -111,6 +131,13 @@ const Dashboard: React.FC = () => {
       setShowAddCardModal(false);
       
       console.log(`🎉 Successfully added ${cardsToAdd.length} card(s) to dashboard`);
+      
+      // Show success message to user
+      if (cardsToAdd.length === 1) {
+        console.log(`✨ Added "${cardsToAdd[0].type}" card to your dashboard!`);
+      } else {
+        console.log(`✨ Added ${cardsToAdd.length} cards to your dashboard!`);
+      }
 
     } catch (error) {
       console.error('💥 Error adding cards to dashboard:', error);
