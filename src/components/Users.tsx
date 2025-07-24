@@ -305,15 +305,6 @@ const Users: React.FC = () => {
                         step="0.01"
                         min="0"
                       />
-                      <button
-                        onClick={() => {
-                          setSelectedAccount(account);
-                          setShowAllocationModal(true);
-                        }}
-                        className="p-2 text-gray-400 hover:text-blue-600 transition-colors"
-                      >
-                        <ArrowUpRight className="h-4 w-4" />
-                      </button>
                     </div>
                   </div>
                   <p className="text-xs text-gray-500 mt-1">

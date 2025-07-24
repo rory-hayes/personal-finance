@@ -271,29 +271,37 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
 
     try {
-      const { error } = await supabase
+      console.log('Starting onboarding completion for user:', user.id);
+
+      // Step 1: Update user profile
+      console.log('Updating user profile...');
+      const { error: profileError } = await supabase
         .from('user_profiles')
         .update({
           household_size: data.household_size,
           monthly_income: data.monthly_income,
           onboarding_completed: true,
+          updated_at: new Date().toISOString()
         })
         .eq('id', user.id);
 
-      if (error) {
-        return { error };
+      if (profileError) {
+        console.error('Profile update error:', profileError);
+        return { error: profileError };
       }
+      console.log('✅ Profile updated successfully');
 
-      // Create user records for all household members in the users table
+      // Step 2: Create household member records
       if (data.household_members && data.household_members.length > 0) {
+        console.log('Creating household member records...');
         const colors = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#06B6D4', '#EC4899', '#F97316'];
         
         const usersToInsert = data.household_members.map((member, index) => ({
-          id: index === 0 ? user.id : `${user.id}-member-${index}`, // Main user gets auth ID, others get derived IDs
+          id: index === 0 ? user.id : `${user.id}-member-${index}`,
           name: member.name.trim() || `Household Member ${index + 1}`,
-          monthly_income: index === 0 ? data.monthly_income : 0, // Only main user gets income initially
+          monthly_income: index === 0 ? data.monthly_income : 0,
           color: colors[index % colors.length],
-          auth_user_id: user.id, // All members linked to the main authenticated user
+          auth_user_id: user.id,
         }));
 
         const { error: usersError } = await supabase
@@ -304,23 +312,27 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           });
 
         if (usersError) {
-          console.error('Error creating household member records:', usersError);
-          // Don't fail onboarding if user creation fails, but log it
+          console.error('Users creation error:', usersError);
+          // Don't fail onboarding, but log the error
+        } else {
+          console.log('✅ Household members created successfully');
         }
       }
 
-      // Create initial accounts if provided
+      // Step 3: Create initial accounts
       if (data.accounts && data.accounts.length > 0) {
+        console.log('Creating initial accounts...');
         const colors = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#06B6D4'];
         
         const accountsToInsert = data.accounts
           .filter(account => account.name.trim() && account.balance.trim())
           .map((account, index) => ({
-            user_id: user.id, // Link accounts to the main authenticated user
+            user_id: user.id,
             name: account.name.trim(),
             type: account.type,
             balance: parseFloat(account.balance) || 0,
             color: colors[index % colors.length],
+            last_updated: new Date().toISOString()
           }));
 
         if (accountsToInsert.length > 0) {
@@ -329,17 +341,102 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             .insert(accountsToInsert);
 
           if (accountsError) {
-            console.error('Error creating accounts:', accountsError);
-            // Don't fail onboarding if accounts creation fails
+            console.error('Accounts creation error:', accountsError);
+            // Don't fail onboarding, but log the error
+          } else {
+            console.log('✅ Accounts created successfully');
           }
         }
       }
 
-      // Reload profile after update
+      // Step 4: Create default dashboard configuration with starter cards
+      console.log('Creating default dashboard configuration...');
+      try {
+        const defaultDashboardConfig = {
+          user_id: user.id,
+          name: 'My Dashboard',
+          is_default: true,
+          layout_config: {
+            cards: [
+              {
+                id: `card-monthly-income-${Date.now()}`,
+                type: 'monthly-income',
+                size: 'quarter',
+                position: { x: 0, y: 0, w: 1, h: 1 },
+                config: {
+                  title: 'Monthly Income',
+                  chartType: 'number',
+                  timeRange: 'current',
+                  visible: true
+                }
+              },
+              {
+                id: `card-monthly-spending-${Date.now() + 1}`,
+                type: 'monthly-spending',
+                size: 'quarter',
+                position: { x: 1, y: 0, w: 1, h: 1 },
+                config: {
+                  title: 'Monthly Spending',
+                  chartType: 'number',
+                  timeRange: 'current',
+                  visible: true
+                }
+              },
+              {
+                id: `card-net-worth-${Date.now() + 2}`,
+                type: 'net-worth',
+                size: 'quarter',
+                position: { x: 2, y: 0, w: 1, h: 1 },
+                config: {
+                  title: 'Net Worth',
+                  chartType: 'number',
+                  timeRange: 'current',
+                  visible: true
+                }
+              },
+              {
+                id: `card-account-list-${Date.now() + 3}`,
+                type: 'account-list',
+                size: 'quarter',
+                position: { x: 3, y: 0, w: 1, h: 1 },
+                config: {
+                  title: 'Accounts',
+                  visible: true
+                }
+              }
+            ],
+            settings: {
+              gridColumns: 4,
+              cardSpacing: 24,
+              theme: 'light'
+            }
+          }
+        };
+
+        const { error: dashboardError } = await supabase
+          .from('dashboard_configurations')
+          .insert([defaultDashboardConfig]);
+
+        if (dashboardError) {
+          console.error('Dashboard configuration creation error:', dashboardError);
+          // Don't fail onboarding, but log the error
+        } else {
+          console.log('✅ Default dashboard configuration created successfully');
+        }
+      } catch (dashboardCreationError) {
+        console.error('Error creating dashboard configuration:', dashboardCreationError);
+        // Don't fail onboarding for dashboard creation issues
+      }
+
+      // Step 5: Reload profile to reflect changes
+      console.log('Reloading user profile...');
       await loadUserProfile(user.id);
       
+      console.log('🎉 Onboarding completed successfully!');
       return { error: null };
+
     } catch (error) {
+      console.error('Critical error in completeOnboarding:', error);
       return { error };
     }
   };

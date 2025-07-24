@@ -80,14 +80,25 @@ const Dashboard: React.FC = () => {
     }
 
     try {
-      console.log('Adding selected cards to dashboard:', Array.from(selectedCards));
+      console.log('🔄 Adding selected cards to dashboard:', Array.from(selectedCards));
+      console.log('📊 Current config before adding:', currentConfig);
+      
+      let addedCount = 0;
       
       // Add each selected card to the database
       for (const cardType of selectedCards) {
-        const definition = getCardDefinition(cardType);
-        if (definition) {
-          await addCardToConfig(cardType, definition.defaultSize);
-          console.log('Successfully added card:', cardType);
+        try {
+          const definition = getCardDefinition(cardType);
+          if (definition) {
+            console.log(`➕ Adding card: ${cardType} with size: ${definition.defaultSize}`);
+            await addCardToConfig(cardType, definition.defaultSize);
+            addedCount++;
+            console.log(`✅ Successfully added card: ${cardType}`);
+          } else {
+            console.warn(`⚠️ No definition found for card type: ${cardType}`);
+          }
+        } catch (cardError) {
+          console.error(`❌ Error adding individual card ${cardType}:`, cardError);
         }
       }
 
@@ -95,10 +106,20 @@ const Dashboard: React.FC = () => {
       setSelectedCards(new Set());
       setShowAddCardModal(false);
       
-      console.log('All cards added successfully');
+      if (addedCount > 0) {
+        console.log(`🎉 Successfully added ${addedCount} card(s) to dashboard`);
+        // Force a small delay to ensure state updates
+        setTimeout(() => {
+          console.log('📊 Current config after adding:', currentConfig);
+        }, 100);
+      } else {
+        throw new Error('No cards were successfully added');
+      }
+
     } catch (error) {
-      console.error('Error adding cards to dashboard:', error);
-      alert('Failed to add some cards to the dashboard. Please try again.');
+      console.error('💥 Error adding cards to dashboard:', error);
+      alert('Failed to add cards to the dashboard. Please try again.');
+      // Don't close modal on error so user can retry
     }
   };
 

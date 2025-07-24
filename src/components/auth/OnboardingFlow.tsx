@@ -105,21 +105,37 @@ const OnboardingFlow: React.FC = () => {
   const handleComplete = async () => {
     setLoading(true);
     
-    const monthlyIncome = parseFloat(formData.monthly_income) || 0;
-    
-    const { error } = await completeOnboarding({
-      household_size: formData.household_size,
-      household_members: formData.household_members,
-      monthly_income: monthlyIncome,
-      accounts: formData.accounts,
-    });
+    try {
+      // Set a timeout to prevent infinite loading
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('Onboarding timeout - please try again')), 30000); // 30 second timeout
+      });
+      
+      const monthlyIncome = parseFloat(formData.monthly_income) || 0;
+      
+      const onboardingPromise = completeOnboarding({
+        household_size: formData.household_size,
+        household_members: formData.household_members,
+        monthly_income: monthlyIncome,
+        accounts: formData.accounts,
+      });
 
-    if (error) {
-      console.error('Error completing onboarding:', error);
-      alert('There was an error setting up your profile. Please try again.');
+      // Race between onboarding and timeout
+      const { error } = await Promise.race([onboardingPromise, timeoutPromise]);
+
+      if (error) {
+        console.error('Error completing onboarding:', error);
+        alert(`Setup failed: ${error.message || 'Please try again'}`);
+      } else {
+        console.log('Onboarding completed successfully');
+        // Success - the AuthContext will handle navigation via profile update
+      }
+    } catch (error) {
+      console.error('Error in handleComplete:', error);
+      alert(`Setup failed: ${error.message || 'Unknown error - please try again'}`);
+    } finally {
+      setLoading(false);
     }
-    
-    setLoading(false);
   };
 
   const renderStep1 = () => (

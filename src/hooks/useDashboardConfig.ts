@@ -248,41 +248,59 @@ export const useDashboardConfig = (userId: string) => {
 
   // Add card to current configuration
   const addCard = useCallback(async (cardType: string, size: CardSize = 'half') => {
+    console.log(`🔄 useDashboardConfig.addCard called with: ${cardType}, size: ${size}`);
+    
     let configToUpdate = currentConfig;
     
     // If no current config exists, create a default one
     if (!configToUpdate) {
-      console.log('No current config found, creating default configuration');
+      console.log('📝 No current config found, creating default configuration');
       const defaultConfig = createDefaultConfiguration(userId);
       setCurrentConfig(defaultConfig);
       configToUpdate = defaultConfig;
     }
 
-    const newCard: DashboardCard = {
-      id: `card-${Date.now()}`,
-      type: cardType as any,
-      size,
-      position: { x: 0, y: 0, w: 2, h: 1 }, // Will be auto-positioned
-      config: {
-        title: getCardTitle(cardType),
-        chartType: 'bar',
-        timeRange: '6months',
-        visible: true
-      }
-    };
+    try {
+      const newCard: DashboardCard = {
+        id: `card-${cardType}-${Date.now()}`,
+        type: cardType as any,
+        size,
+        position: { x: 0, y: 0, w: 2, h: 1 }, // Will be auto-positioned
+        config: {
+          title: getCardTitle(cardType),
+          chartType: 'bar',
+          timeRange: '6months',
+          visible: true
+        }
+      };
 
-    const updatedConfig = {
-      ...configToUpdate,
-      layoutConfig: {
-        ...configToUpdate.layoutConfig,
-        cards: [...(configToUpdate.layoutConfig.cards || []), newCard]
-      }
-    };
+      const updatedConfig = {
+        ...configToUpdate,
+        layoutConfig: {
+          ...configToUpdate.layoutConfig,
+          cards: [...(configToUpdate.layoutConfig.cards || []), newCard]
+        }
+      };
 
-    console.log('Adding card to dashboard:', cardType, 'Updated config:', updatedConfig);
-    
-    setCurrentConfig(updatedConfig);
-    await saveConfiguration(updatedConfig);
+      console.log('📊 Adding card to dashboard:', cardType, 'Updated config:', updatedConfig);
+      
+      // Update state immediately for instant UI feedback
+      setCurrentConfig(updatedConfig);
+      
+      // Force a re-render by updating the configurations array
+      setConfigurations(prev => prev.map(config => 
+        config.id === updatedConfig.id ? updatedConfig : config
+      ));
+      
+      // Save to database/localStorage
+      await saveConfiguration(updatedConfig);
+      
+      console.log('✅ Card added successfully:', cardType);
+      
+    } catch (error) {
+      console.error('❌ Error in addCard:', error);
+      throw error; // Re-throw so calling component can handle it
+    }
   }, [currentConfig, saveConfiguration, userId]);
 
   // Remove card from current configuration

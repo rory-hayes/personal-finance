@@ -1,0 +1,10 @@
+# SPA Fallback for React Router
+/*    /index.html   200
+
+# Hash routing fallback
+/dashboard   /#/dashboard   301
+/expenses    /#/expenses    301  
+/assets      /#/assets      301
+/goals       /#/goals       301
+/users       /#/users       301
+/budget      /#/budget      301 
