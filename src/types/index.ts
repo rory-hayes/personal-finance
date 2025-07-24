@@ -1,19 +1,22 @@
-export interface Transaction {
-  id: string;
-  date: string;
-  description: string;
-  amount: number;
-  category: string;
-  userId?: string;
-  userName?: string;
-  rejected?: boolean;
-}
-
 export interface User {
   id: string;
   name: string;
   monthlyIncome: number;
   color: string;
+}
+
+export interface HouseholdMember {
+  name: string;
+  isMain: boolean;
+}
+
+export interface Transaction {
+  id: string;
+  userId: string;
+  date: string;
+  description: string;
+  amount: number;
+  category: string;
 }
 
 export interface Asset {
