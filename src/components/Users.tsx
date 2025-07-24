@@ -1,10 +1,10 @@
-import React, { useState } from 'react';
-import { Plus, User, DollarSign, Edit3, Users as UsersIcon, Target, CreditCard, ArrowUpRight, Wallet, TrendingUp } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Plus, User, DollarSign, Edit3, Users as UsersIcon, Target, CreditCard, ArrowUpRight, Wallet, TrendingUp, Trash2, X } from 'lucide-react';
 import { useFinanceData } from '../hooks/useFinanceData';
 import { User as UserType, Account } from '../types';
 
 const Users: React.FC = () => {
-  const { users, addUser, updateUserIncome, totalIncome, accounts, addAccount, updateAccount, totalAccountBalance, allocateToAccount } = useFinanceData();
+  const { users, addUser, updateUserIncome, totalIncome, accounts, addAccount, updateAccount, deleteAccount, totalAccountBalance, allocateToAccount } = useFinanceData();
   const [showAddForm, setShowAddForm] = useState(false);
   const [showAccountForm, setShowAccountForm] = useState(false);
   const [showAllocationModal, setShowAllocationModal] = useState(false);
@@ -26,6 +26,40 @@ const Users: React.FC = () => {
     cliffAmount: '',
     cliffPeriod: '6' // 6 months or 12 months
   });
+
+  // Confirmation modal state
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [itemToDelete, setItemToDelete] = useState<{type: 'account' | 'user', id: string, name: string} | null>(null);
+
+  // Handle Esc key to close modals
+  useEffect(() => {
+    const handleEscKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        if (showAddForm) {
+          setShowAddForm(false);
+          setFormData({ name: '', monthlyIncome: '' });
+        }
+        if (showAccountForm) {
+          setShowAccountForm(false);
+          setAccountFormData({ name: '', type: 'main', balance: '' });
+        }
+        if (showAllocationModal) {
+          setShowAllocationModal(false);
+          setSelectedAccount(null);
+          setAllocationData({ amount: '', description: '', cliffAmount: '', cliffPeriod: '6' });
+        }
+        if (showDeleteConfirm) {
+          setShowDeleteConfirm(false);
+          setItemToDelete(null);
+        }
+      }
+    };
+
+    if (showAddForm || showAccountForm || showAllocationModal || showDeleteConfirm) {
+      document.addEventListener('keydown', handleEscKey);
+      return () => document.removeEventListener('keydown', handleEscKey);
+    }
+  }, [showAddForm, showAccountForm, showAllocationModal, showDeleteConfirm]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -92,7 +126,7 @@ const Users: React.FC = () => {
 
     allocateToAccount(selectedAccount.id, amount, allocationData.description);
     
-    setAllocationData({ amount: '', description: '' });
+    setAllocationData({ amount: '', description: '', cliffAmount: '', cliffPeriod: '6' });
     setSelectedAccount(null);
     setShowAllocationModal(false);
   };
@@ -126,7 +160,18 @@ const Users: React.FC = () => {
     if (editingUser) {
       const income = parseFloat(editingIncome);
       if (!isNaN(income) && income >= 0) {
-        await updateUserIncome(editingUser, income);
+        try {
+          await updateUserIncome(editingUser, income);
+          // Success feedback could be added here
+          console.log('✅ Income updated successfully');
+        } catch (error) {
+          console.error('❌ Failed to update income:', error);
+          alert('Failed to update income. Please try again.');
+          return; // Don't close the editor on error
+        }
+      } else {
+        alert('Please enter a valid positive number for monthly income.');
+        return;
       }
       setEditingUser(null);
       setEditingIncome('');
@@ -138,6 +183,34 @@ const Users: React.FC = () => {
     setEditingIncome('');
   };
 
+  // Delete confirmation handlers
+  const handleDeleteAccount = (accountId: string, accountName: string) => {
+    setItemToDelete({ type: 'account', id: accountId, name: accountName });
+    setShowDeleteConfirm(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!itemToDelete) return;
+
+    try {
+      if (itemToDelete.type === 'account') {
+        await deleteAccount(itemToDelete.id);
+        console.log('✅ Account deleted successfully');
+      }
+      // TODO: Add user deletion when that functionality is implemented
+      setShowDeleteConfirm(false);
+      setItemToDelete(null);
+    } catch (error) {
+      console.error('❌ Failed to delete:', error);
+      alert(`Failed to delete ${itemToDelete.type}. Please try again.`);
+    }
+  };
+
+  const handleCancelDelete = () => {
+    setShowDeleteConfirm(false);
+    setItemToDelete(null);
+  };
+
   // Filter out duplicate users and ensure only one primary user
   const uniqueUsers = users.reduce((acc, user, index) => {
     const existingUser = acc.find(u => u.name.toLowerCase() === user.name.toLowerCase());
@@ -145,7 +218,7 @@ const Users: React.FC = () => {
       acc.push({ ...user, isPrimary: index === 0 });
     }
     return acc;
-  }, [] as (User & { isPrimary: boolean })[]);
+  }, [] as (UserType & { isPrimary: boolean })[]);
 
   return (
     <div className="space-y-6">
@@ -212,7 +285,7 @@ const Users: React.FC = () => {
               
               <div>
                 <label htmlFor="monthlyIncome" className="block text-sm font-medium text-gray-700 mb-2">
-                  Monthly Income ($)
+                                        Monthly Income (€)
                 </label>
                 <input
                   type="number"
@@ -279,15 +352,25 @@ const Users: React.FC = () => {
                         <p className="text-sm text-gray-500">{accountTypeLabels[account.type]}</p>
                       </div>
                     </div>
-                    <button
-                      onClick={() => {
-                        setSelectedAccount(account);
-                        setShowAllocationModal(true);
-                      }}
-                      className="p-2 text-gray-400 hover:text-blue-600 transition-colors"
-                    >
-                      <ArrowUpRight className="h-4 w-4" />
-                    </button>
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => {
+                          setSelectedAccount(account);
+                          setShowAllocationModal(true);
+                        }}
+                        className="p-2 text-gray-400 hover:text-blue-600 transition-colors"
+                        title="Allocate funds"
+                      >
+                        <ArrowUpRight className="h-4 w-4" />
+                      </button>
+                      <button
+                        onClick={() => handleDeleteAccount(account.id, account.name)}
+                        className="p-2 text-gray-400 hover:text-red-600 transition-colors"
+                        title="Delete account"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
                   </div>
                   <div className="flex items-center justify-between">
                     <p className="text-xl font-bold text-gray-900">
@@ -325,10 +408,27 @@ const Users: React.FC = () => {
 
       {/* Account Form Modal */}
       {showAccountForm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl max-w-md w-full">
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="account-modal-title"
+        >
+          <div className="bg-white rounded-xl max-w-md w-full" role="document">
             <div className="p-6 border-b border-gray-200">
-              <h2 className="text-xl font-bold text-gray-900">Add New Account</h2>
+              <div className="flex items-center justify-between">
+                <h2 id="account-modal-title" className="text-xl font-bold text-gray-900">Add New Account</h2>
+                <button
+                  onClick={() => {
+                    setShowAccountForm(false);
+                    setAccountFormData({ name: '', type: 'main', balance: '' });
+                  }}
+                  className="text-gray-400 hover:text-gray-600"
+                  aria-label="Close modal"
+                >
+                  <X className="h-6 w-6" />
+                </button>
+              </div>
             </div>
             <form onSubmit={handleAccountSubmit} className="p-6 space-y-4">
               <div>
@@ -401,13 +501,33 @@ const Users: React.FC = () => {
 
       {/* Allocation Modal */}
       {showAllocationModal && selectedAccount && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl max-w-md w-full">
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="allocation-modal-title"
+        >
+          <div className="bg-white rounded-xl max-w-md w-full" role="document">
             <div className="p-6 border-b border-gray-200">
-              <h2 className="text-xl font-bold text-gray-900">Allocate Funds</h2>
-              <p className="text-sm text-gray-600 mt-1">
-                Add funds to {selectedAccount.name}
-              </p>
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 id="allocation-modal-title" className="text-xl font-bold text-gray-900">Allocate Funds</h2>
+                  <p className="text-sm text-gray-600 mt-1">
+                    Add funds to {selectedAccount.name}
+                  </p>
+                </div>
+                <button
+                  onClick={() => {
+                    setShowAllocationModal(false);
+                    setSelectedAccount(null);
+                    setAllocationData({ amount: '', description: '', cliffAmount: '', cliffPeriod: '6' });
+                  }}
+                  className="text-gray-400 hover:text-gray-600"
+                  aria-label="Close modal"
+                >
+                  <X className="h-6 w-6" />
+                </button>
+              </div>
             </div>
             <form onSubmit={handleAllocationSubmit} className="p-6 space-y-4">
               <div>
@@ -432,8 +552,8 @@ const Users: React.FC = () => {
                 </label>
                 <input
                   type="number"
-                  value={vestingFormData.cliffAmount}
-                  onChange={(e) => setVestingFormData(prev => ({ ...prev, cliffAmount: e.target.value }))}
+                  value={allocationData.cliffAmount}
+                  onChange={(e) => setAllocationData(prev => ({ ...prev, cliffAmount: e.target.value }))}
                   placeholder="0.00"
                   min="0"
                   step="0.01"
@@ -444,14 +564,14 @@ const Users: React.FC = () => {
                 </p>
               </div>
               
-              {vestingFormData.cliffAmount && (
+              {allocationData.cliffAmount && (
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Cliff Period
                   </label>
                   <select
-                    value={vestingFormData.cliffPeriod}
-                    onChange={(e) => setVestingFormData(prev => ({ ...prev, cliffPeriod: e.target.value }))}
+                    value={allocationData.cliffPeriod}
+                    onChange={(e) => setAllocationData(prev => ({ ...prev, cliffPeriod: e.target.value }))}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
                     <option value="6">6 months</option>
@@ -493,7 +613,7 @@ const Users: React.FC = () => {
                   onClick={() => {
                     setShowAllocationModal(false);
                     setSelectedAccount(null);
-                    setAllocationData({ amount: '', description: '' });
+                    setAllocationData({ amount: '', description: '', cliffAmount: '', cliffPeriod: '6' });
                   }}
                   className="px-4 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2"
                 >
@@ -651,6 +771,51 @@ const Users: React.FC = () => {
           <p>• <strong>Joint Analysis:</strong> The AI considers all household income and expenses for better insights</p>
         </div>
       </div>
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirm && itemToDelete && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl max-w-md w-full">
+            <div className="p-6">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="p-2 bg-red-100 rounded-full">
+                  <Trash2 className="h-5 w-5 text-red-600" />
+                </div>
+                <h2 className="text-xl font-bold text-gray-900">
+                  Delete {itemToDelete.type === 'account' ? 'Account' : 'Member'}
+                </h2>
+              </div>
+              
+              <p className="text-gray-600 mb-6">
+                Are you sure you want to delete <strong>"{itemToDelete.name}"</strong>? 
+                {itemToDelete.type === 'account' 
+                  ? ' This will permanently remove the account and all associated data.'
+                  : ' This will permanently remove the household member and all associated data.'
+                }
+              </p>
+              
+              <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-6">
+                <p className="text-red-800 text-sm font-medium">⚠️ This action cannot be undone!</p>
+              </div>
+
+              <div className="flex gap-3">
+                <button
+                  onClick={handleCancelDelete}
+                  className="flex-1 px-4 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleConfirmDelete}
+                  className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2"
+                >
+                  Delete {itemToDelete.type === 'account' ? 'Account' : 'Member'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

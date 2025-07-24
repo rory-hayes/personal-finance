@@ -1,11 +1,22 @@
 import React, { useState } from 'react';
 import { X } from 'lucide-react';
+import { User } from '../../../types';
+
+interface VestingScheduleData {
+  userId: string;
+  monthlyAmount: number;
+  startDate: string;
+  endDate: string;
+  description?: string;
+  cliffAmount?: number;
+  cliffPeriod?: number;
+}
 
 interface VestingScheduleModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (vestingData: any) => Promise<void>;
-  currentUser: any;
+  onSubmit: (data: VestingScheduleData) => Promise<void>;
+  currentUser: User;
 }
 
 const VestingScheduleModal: React.FC<VestingScheduleModalProps> = ({
@@ -24,6 +35,20 @@ const VestingScheduleModal: React.FC<VestingScheduleModalProps> = ({
   });
 
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Handle Esc key to close modal
+  React.useEffect(() => {
+    const handleEscKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && isOpen) {
+        onClose();
+      }
+    };
+
+    if (isOpen) {
+      document.addEventListener('keydown', handleEscKey);
+      return () => document.removeEventListener('keydown', handleEscKey);
+    }
+  }, [isOpen, onClose]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -84,13 +109,19 @@ const VestingScheduleModal: React.FC<VestingScheduleModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-xl p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
+    <div 
+      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="vesting-modal-title"
+    >
+      <div className="bg-white rounded-xl p-6 w-full max-w-md max-h-[90vh] overflow-y-auto" role="document">
         <div className="flex items-center justify-between mb-6">
-          <h2 className="text-xl font-bold text-gray-900">Add Vesting Schedule</h2>
+          <h2 id="vesting-modal-title" className="text-xl font-bold text-gray-900">Add Vesting Schedule</h2>
           <button
             onClick={onClose}
             className="p-2 text-gray-400 hover:text-gray-600 transition-colors"
+            aria-label="Close modal"
           >
             <X className="h-5 w-5" />
           </button>

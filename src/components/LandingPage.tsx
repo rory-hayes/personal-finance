@@ -172,7 +172,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
                 <h3 className="font-semibold text-gray-900">Monthly Income</h3>
                 <DollarSign className="h-5 w-5 text-green-600" />
               </div>
-              <div className="text-2xl font-bold text-gray-900">$5,420</div>
+              <div className="text-2xl font-bold text-gray-900">€5,420</div>
               <div className="text-sm text-green-600 flex items-center mt-2">
                 <TrendingUp className="h-4 w-4 mr-1" />
                 +8% from last month
@@ -184,7 +184,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
                 <h3 className="font-semibold text-gray-900">Expenses</h3>
                 <CreditCard className="h-5 w-5 text-red-600" />
               </div>
-              <div className="text-2xl font-bold text-gray-900">$3,240</div>
+              <div className="text-2xl font-bold text-gray-900">€3,240</div>
               <div className="text-sm text-red-600 flex items-center mt-2">
                 <TrendingDown className="h-4 w-4 mr-1" />
                 -3% from last month
@@ -198,7 +198,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
               </div>
               <div className="text-2xl font-bold text-gray-900">72%</div>
               <div className="text-sm text-gray-600 mt-2">
-                $7,200 of $10,000
+                €7,200 of €10,000
               </div>
             </div>
 
@@ -207,7 +207,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
                 <h3 className="font-semibold text-gray-900">Net Worth</h3>
                 <TrendingUp className="h-5 w-5 text-green-600" />
               </div>
-              <div className="text-2xl font-bold text-gray-900">$47,830</div>
+              <div className="text-2xl font-bold text-gray-900">€47,830</div>
               <div className="text-sm text-green-600 flex items-center mt-2">
                 <TrendingUp className="h-4 w-4 mr-1" />
                 +12% this year

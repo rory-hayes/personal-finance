@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
 import { Plus, Target, Calendar, DollarSign, TrendingUp, Edit3, Trash2 } from 'lucide-react';
 import { useFinanceData } from '../hooks/useFinanceData';
+import { useFormValidation, commonValidationRules } from '../hooks/useFormValidation';
 import { Goal } from '../types';
 
 const Goals: React.FC = () => {
-  const { goals, addGoal, updateGoal, totalIncome, monthlySavings } = useFinanceData();
+  const { goals, addGoal, updateGoal, deleteGoal, totalIncome, monthlySavings } = useFinanceData();
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingGoal, setEditingGoal] = useState<Goal | null>(null);
   const [formData, setFormData] = useState({
@@ -13,6 +14,37 @@ const Goals: React.FC = () => {
     currentAmount: '',
     targetDate: '',
     description: '',
+  });
+
+  // Confirmation modal state  
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [goalToDelete, setGoalToDelete] = useState<Goal | null>(null);
+
+  // Standardized validation
+  const {
+    validateForm,
+    clearFieldError,
+    getFieldProps,
+    setShowValidation,
+    clearAllErrors
+  } = useFormValidation({
+    name: commonValidationRules.name,
+    targetAmount: commonValidationRules.positiveNumber,
+    currentAmount: {
+      ...commonValidationRules.optionalPositiveNumber,
+      custom: (value: string) => {
+        if (!value.trim()) return null;
+        const current = parseFloat(value);
+        const target = parseFloat(formData.targetAmount);
+        if (isNaN(current)) return 'Please enter a valid number';
+        if (current < 0) return 'Value must be positive';
+        if (!isNaN(target) && current > target) {
+          return 'Current amount cannot be greater than target amount';
+        }
+        return null;
+      }
+    },
+    targetDate: { required: true }
   });
 
   // Listen for custom event from Dashboard
@@ -27,24 +59,14 @@ const Goals: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setShowValidation(true);
     
+    if (!validateForm(formData)) {
+      return;
+    }
+
     const targetAmount = parseFloat(formData.targetAmount);
     const currentAmount = parseFloat(formData.currentAmount || '0');
-    
-    if (isNaN(targetAmount) || targetAmount <= 0) {
-      alert('Please enter a valid target amount');
-      return;
-    }
-    
-    if (isNaN(currentAmount) || currentAmount < 0) {
-      alert('Please enter a valid current amount');
-      return;
-    }
-    
-    if (currentAmount > targetAmount) {
-      alert('Current amount cannot be greater than target amount');
-      return;
-    }
 
     const goalData = {
       name: formData.name.trim(),
@@ -57,11 +79,9 @@ const Goals: React.FC = () => {
     try {
       if (editingGoal) {
         await updateGoal(editingGoal.id, goalData);
-        alert('Goal updated successfully!');
         setEditingGoal(null);
       } else {
         await addGoal(goalData);
-        alert('Goal added successfully!');
       }
 
       setFormData({
@@ -72,10 +92,17 @@ const Goals: React.FC = () => {
         description: '',
       });
       setShowAddForm(false);
+      clearAllErrors();
     } catch (error) {
       console.error('Error saving goal:', error);
+      // Could add a more sophisticated error display here
       alert('Failed to save goal. Please try again.');
     }
+  };
+
+  const handleFieldChange = (fieldName: string, value: string) => {
+    setFormData(prev => ({ ...prev, [fieldName]: value }));
+    clearFieldError(fieldName);
   };
 
   const handleEdit = (goal: Goal) => {
@@ -100,6 +127,31 @@ const Goals: React.FC = () => {
     });
     setEditingGoal(null);
     setShowAddForm(false);
+  };
+
+  // Delete confirmation handlers
+  const handleDeleteGoal = (goal: Goal) => {
+    setGoalToDelete(goal);
+    setShowDeleteConfirm(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!goalToDelete) return;
+
+    try {
+      await deleteGoal(goalToDelete.id);
+      console.log('✅ Goal deleted successfully');
+      setShowDeleteConfirm(false);
+      setGoalToDelete(null);
+    } catch (error) {
+      console.error('❌ Failed to delete goal:', error);
+      alert('Failed to delete goal. Please try again.');
+    }
+  };
+
+  const handleCancelDelete = () => {
+    setShowDeleteConfirm(false);
+    setGoalToDelete(null);
   };
 
   const calculateMonthlyTarget = (goal: Goal) => {
@@ -187,69 +239,89 @@ const Goals: React.FC = () => {
           
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
+                            <div>
                 <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-2">
-                  Goal Name
+                  Goal Name <span className="text-red-500 ml-1">*</span>
                 </label>
                 <input
                   type="text"
                   id="name"
                   value={formData.name}
-                  onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                  onChange={(e) => handleFieldChange('name', e.target.value)}
                   placeholder="e.g., Emergency Fund, House Down Payment"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   required
+                  {...getFieldProps('name')}
                 />
+                {getFieldProps('name').error && (
+                  <p className="text-red-500 text-sm mt-1 flex items-center">
+                    ⚠️ {getFieldProps('name').error}
+                  </p>
+                )}
               </div>
               
-              <div>
+                            <div>
                 <label htmlFor="targetAmount" className="block text-sm font-medium text-gray-700 mb-2">
-                  Target Amount ($)
+                  Target Amount (€) <span className="text-red-500 ml-1">*</span>
                 </label>
                 <input
                   type="number"
                   id="targetAmount"
                   value={formData.targetAmount}
-                  onChange={(e) => setFormData(prev => ({ ...prev, targetAmount: e.target.value }))}
+                  onChange={(e) => handleFieldChange('targetAmount', e.target.value)}
                   placeholder="10000"
                   min="0"
                   step="0.01"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   required
+                  {...getFieldProps('targetAmount')}
                 />
+                {getFieldProps('targetAmount').error && (
+                  <p className="text-red-500 text-sm mt-1 flex items-center">
+                    ⚠️ {getFieldProps('targetAmount').error}
+                  </p>
+                )}
               </div>
             </div>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
+                            <div>
                 <label htmlFor="currentAmount" className="block text-sm font-medium text-gray-700 mb-2">
-                  Current Amount ($)
+                  Current Amount (€)
                 </label>
                 <input
                   type="number"
                   id="currentAmount"
                   value={formData.currentAmount}
-                  onChange={(e) => setFormData(prev => ({ ...prev, currentAmount: e.target.value }))}
+                  onChange={(e) => handleFieldChange('currentAmount', e.target.value)}
                   placeholder="0"
                   min="0"
                   step="0.01"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  {...getFieldProps('currentAmount')}
                 />
+                {getFieldProps('currentAmount').error && (
+                  <p className="text-red-500 text-sm mt-1 flex items-center">
+                    ⚠️ {getFieldProps('currentAmount').error}
+                  </p>
+                )}
               </div>
               
               <div>
                 <label htmlFor="targetDate" className="block text-sm font-medium text-gray-700 mb-2">
-                  Target Date
+                  Target Date <span className="text-red-500 ml-1">*</span>
                 </label>
                 <input
                   type="date"
                   id="targetDate"
                   value={formData.targetDate}
-                  onChange={(e) => setFormData(prev => ({ ...prev, targetDate: e.target.value }))}
+                  onChange={(e) => handleFieldChange('targetDate', e.target.value)}
                   min={new Date().toISOString().split('T')[0]}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   required
+                  {...getFieldProps('targetDate')}
                 />
+                {getFieldProps('targetDate').error && (
+                  <p className="text-red-500 text-sm mt-1 flex items-center">
+                    ⚠️ {getFieldProps('targetDate').error}
+                  </p>
+                )}
               </div>
             </div>
             
@@ -260,7 +332,7 @@ const Goals: React.FC = () => {
               <textarea
                 id="description"
                 value={formData.description}
-                onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+                onChange={(e) => handleFieldChange('description', e.target.value)}
                 placeholder="Additional details about this goal..."
                 rows={3}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -350,13 +422,9 @@ const Goals: React.FC = () => {
                       <Edit3 className="h-4 w-4" />
                     </button>
                     <button
-                      onClick={() => {
-                        if (window.confirm('Are you sure you want to delete this goal?')) {
-                          // In a real app, you'd have a deleteGoal function
-                          console.log('Delete goal:', goal.id);
-                        }
-                      }}
+                      onClick={() => handleDeleteGoal(goal)}
                       className="p-2 text-gray-400 hover:text-red-600 transition-colors"
+                      title="Delete goal"
                     >
                       <Trash2 className="h-4 w-4" />
                     </button>
@@ -381,6 +449,53 @@ const Goals: React.FC = () => {
           >
             Set Your First Goal
           </button>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirm && goalToDelete && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl max-w-md w-full">
+            <div className="p-6">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="p-2 bg-red-100 rounded-full">
+                  <Trash2 className="h-5 w-5 text-red-600" />
+                </div>
+                <h2 className="text-xl font-bold text-gray-900">Delete Goal</h2>
+              </div>
+              
+              <p className="text-gray-600 mb-4">
+                Are you sure you want to delete this goal?
+              </p>
+              
+              <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 mb-6">
+                <p className="font-medium text-gray-900">{goalToDelete.name}</p>
+                <p className="text-sm text-gray-600">
+                  €{goalToDelete.currentAmount.toLocaleString()} / €{goalToDelete.targetAmount.toLocaleString()} 
+                  {goalToDelete.description && ` • ${goalToDelete.description}`}
+                </p>
+              </div>
+              
+              <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-6">
+                <p className="text-red-800 text-sm font-medium">⚠️ This action cannot be undone!</p>
+              </div>
+
+              <div className="flex gap-3">
+                <button
+                  onClick={handleCancelDelete}
+                  className="flex-1 px-4 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleConfirmDelete}
+                  className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2"
+                >
+                  Delete Goal
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>

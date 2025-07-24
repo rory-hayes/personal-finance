@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { Upload as UploadIcon, FileText, AlertCircle, CheckCircle, X, Plus, Calendar, DollarSign, Receipt } from 'lucide-react';
+import { Upload as UploadIcon, FileText, AlertCircle, CheckCircle, X, Plus, Calendar, DollarSign, Receipt, History, Edit3, Trash2, Filter, Search, HelpCircle, Info } from 'lucide-react';
 import { useFinanceData } from '../hooks/useFinanceData';
 import { parseCSV, parsePDF } from '../utils/fileParser';
 import TransactionReviewTable from './TransactionReviewTable';
@@ -29,8 +29,17 @@ const Expenses: React.FC = () => {
     category: 'Bills',
     frequency: 'monthly',
   });
+
+  // Expense management state
+  const [showExpenseHistory, setShowExpenseHistory] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState('All');
+  const [dateFilter, setDateFilter] = useState('all');
+  const [editingExpense, setEditingExpense] = useState<Transaction | null>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [expenseToDelete, setExpenseToDelete] = useState<Transaction | null>(null);
   
-  const { addTransaction, users } = useFinanceData();
+  const { addTransaction, transactions, users } = useFinanceData();
 
   const expenseCategories = [
     'Groceries', 'Dining', 'Transportation', 'Utilities', 'Housing', 
@@ -47,9 +56,9 @@ const Expenses: React.FC = () => {
         let transactions;
 
         if (file.name.toLowerCase().endsWith('.csv')) {
-          transactions = parseCSV(content, users[0]?.name);
+          transactions = parseCSV(content, users[0]?.id);
         } else if (file.name.toLowerCase().endsWith('.pdf')) {
-          transactions = parsePDF(content, users[0]?.name);
+          transactions = parsePDF(content, users[0]?.id);
         } else {
           results.push({
             success: false,
@@ -210,11 +219,25 @@ const Expenses: React.FC = () => {
         } : result
       ));
       
-      // Show user feedback
-      if (successCount > 0) {
-        alert(`Successfully imported ${successCount} transaction${successCount === 1 ? '' : 's'}!`);
+      // Show detailed user feedback
+      if (successCount > 0 && errorCount === 0) {
+        // Perfect import
+        alert(`✅ Successfully imported all ${successCount} transaction${successCount === 1 ? '' : 's'}!`);
+      } else if (successCount > 0 && errorCount > 0) {
+        // Partial import
+        const message = `⚠️ Partial Import Complete\n\n` +
+          `✅ Successfully imported: ${successCount} transaction${successCount === 1 ? '' : 's'}\n` +
+          `❌ Failed to import: ${errorCount} transaction${errorCount === 1 ? '' : 's'}\n\n` +
+          `The failed transactions may have invalid data or duplicate IDs. ` +
+          `Check the browser console for detailed error messages.`;
+        alert(message);
       } else {
-        alert('Failed to import transactions. Please check your database connection.');
+        // Complete failure
+        alert('❌ Import Failed\n\nNo transactions could be imported. This may be due to:\n' +
+              '• Database connection issues\n' +
+              '• Invalid transaction data\n' +
+              '• Duplicate transaction IDs\n\n' +
+              'Please check your data and try again.');
       }
       
     } catch (error) {
@@ -285,7 +308,179 @@ const Expenses: React.FC = () => {
             </div>
           </div>
         </div>
+
+        <button
+          onClick={() => setShowExpenseHistory(!showExpenseHistory)}
+          className="bg-white rounded-xl p-6 shadow-sm border border-gray-200 hover:border-orange-300 hover:shadow-md transition-all text-left"
+        >
+          <div className="flex items-center gap-4">
+            <div className="p-3 bg-orange-100 rounded-lg">
+              <History className="h-6 w-6 text-orange-600" />
+            </div>
+            <div>
+              <h3 className="font-semibold text-gray-900">Expense History</h3>
+              <p className="text-sm text-gray-600">View and manage your expenses</p>
+            </div>
+          </div>
+        </button>
       </div>
+
+      {/* Expense History Section */}
+      {showExpenseHistory && (
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="text-lg font-semibold text-gray-900">Expense History</h3>
+            <p className="text-sm text-gray-600">
+              {transactions.filter(t => t.amount < 0).length} expenses found
+            </p>
+          </div>
+
+          {/* Filters */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+            <div className="relative">
+              <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Search expenses..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+
+            <select
+              value={selectedCategory}
+              onChange={(e) => setSelectedCategory(e.target.value)}
+              className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="All">All Categories</option>
+              {expenseCategories.map(cat => (
+                <option key={cat} value={cat}>{cat}</option>
+              ))}
+            </select>
+
+            <select
+              value={dateFilter}
+              onChange={(e) => setDateFilter(e.target.value)}
+              className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="all">All Time</option>
+              <option value="today">Today</option>
+              <option value="week">This Week</option>
+              <option value="month">This Month</option>
+              <option value="quarter">This Quarter</option>
+              <option value="year">This Year</option>
+            </select>
+
+            <button
+              onClick={() => {
+                setSearchTerm('');
+                setSelectedCategory('All');
+                setDateFilter('all');
+              }}
+              className="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50"
+            >
+              Clear Filters
+            </button>
+          </div>
+
+          {/* Expenses List */}
+          <div className="space-y-3 max-h-96 overflow-y-auto">
+            {transactions
+              .filter(transaction => {
+                // Only show expenses (negative amounts)
+                if (transaction.amount >= 0) return false;
+                
+                // Search filter
+                if (searchTerm && !transaction.description.toLowerCase().includes(searchTerm.toLowerCase()) && 
+                    !transaction.category?.toLowerCase().includes(searchTerm.toLowerCase())) {
+                  return false;
+                }
+                
+                // Category filter
+                if (selectedCategory !== 'All' && transaction.category !== selectedCategory) {
+                  return false;
+                }
+                
+                // Date filter
+                const transactionDate = new Date(transaction.date);
+                const now = new Date();
+                
+                switch (dateFilter) {
+                  case 'today':
+                    return transactionDate.toDateString() === now.toDateString();
+                  case 'week':
+                    const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+                    return transactionDate >= weekAgo;
+                  case 'month':
+                    return transactionDate.getMonth() === now.getMonth() && transactionDate.getFullYear() === now.getFullYear();
+                  case 'quarter':
+                    const currentQuarter = Math.floor(now.getMonth() / 3);
+                    const transactionQuarter = Math.floor(transactionDate.getMonth() / 3);
+                    return transactionQuarter === currentQuarter && transactionDate.getFullYear() === now.getFullYear();
+                  case 'year':
+                    return transactionDate.getFullYear() === now.getFullYear();
+                  default:
+                    return true;
+                }
+              })
+              .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+              .map((transaction) => (
+                <div key={transaction.id} className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition-colors">
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-3 mb-2">
+                        <div className="p-2 bg-red-100 rounded-full">
+                          <DollarSign className="h-4 w-4 text-red-600" />
+                        </div>
+                        <div>
+                          <h4 className="font-medium text-gray-900">{transaction.description}</h4>
+                          <p className="text-sm text-gray-600">
+                            {new Date(transaction.date).toLocaleDateString()} • {transaction.category}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center gap-4">
+                      <p className="text-lg font-bold text-red-600">
+                        €{Math.abs(transaction.amount).toLocaleString()}
+                      </p>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => setEditingExpense(transaction)}
+                          className="p-2 text-gray-400 hover:text-blue-600 transition-colors"
+                          title="Edit expense"
+                        >
+                          <Edit3 className="h-4 w-4" />
+                        </button>
+                        <button
+                          onClick={() => {
+                            setExpenseToDelete(transaction);
+                            setShowDeleteConfirm(true);
+                          }}
+                          className="p-2 text-gray-400 hover:text-red-600 transition-colors"
+                          title="Delete expense"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))
+            }
+            
+            {transactions.filter(t => t.amount < 0).length === 0 && (
+              <div className="text-center py-8">
+                <Receipt className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                <p className="text-gray-500 mb-2">No expenses found</p>
+                <p className="text-sm text-gray-400">Add your first expense to get started</p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Upload Area */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8">
@@ -339,6 +534,32 @@ const Expenses: React.FC = () => {
                 <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
               </div>
             )}
+          </div>
+        </div>
+
+        {/* File Format Help */}
+        <div className="mt-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
+          <div className="flex items-start gap-3">
+            <Info className="h-5 w-5 text-blue-600 mt-0.5 flex-shrink-0" />
+            <div>
+              <h4 className="font-medium text-blue-900 mb-2">File Format Requirements</h4>
+              <div className="text-sm text-blue-800 space-y-2">
+                <div>
+                  <strong>CSV Files:</strong> Should contain columns for Date, Description, and Amount
+                  <ul className="list-disc list-inside mt-1 ml-2 text-blue-700">
+                    <li><strong>Date formats:</strong> YYYY-MM-DD, DD/MM/YYYY, MM/DD/YYYY, DD.MM.YYYY</li>
+                    <li><strong>Amount:</strong> Can include currency symbols (€, $), negative values in parentheses</li>
+                    <li><strong>Example row:</strong> "2024-01-15","Grocery Store","-25.50"</li>
+                  </ul>
+                </div>
+                <div>
+                  <strong>PDF Files:</strong> Bank statements with transaction data (basic text extraction)
+                </div>
+                <div className="mt-3 p-2 bg-blue-100 rounded">
+                  <strong>💡 Tip:</strong> In the review modal, you can edit dates, amounts, descriptions, and toggle between income/expense before importing.
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -635,6 +856,155 @@ const Expenses: React.FC = () => {
           </div>
         </div>
       </div>
+      {/* Edit Expense Modal */}
+      {editingExpense && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl max-w-md w-full">
+            <div className="p-6 border-b border-gray-200">
+              <div className="flex items-center justify-between">
+                <h2 className="text-xl font-bold text-gray-900">Edit Expense</h2>
+                <button
+                  onClick={() => setEditingExpense(null)}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <X className="h-6 w-6" />
+                </button>
+              </div>
+            </div>
+            <form 
+              onSubmit={(e) => {
+                e.preventDefault();
+                // For now, just close the modal - actual update functionality would go here
+                alert('Edit functionality would be implemented here with updateTransaction function');
+                setEditingExpense(null);
+              }} 
+              className="p-6 space-y-4"
+            >
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Description
+                </label>
+                <input
+                  type="text"
+                  value={editingExpense.description}
+                  onChange={(e) => setEditingExpense({...editingExpense, description: e.target.value})}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Amount (€)
+                </label>
+                <input
+                  type="number"
+                  value={Math.abs(editingExpense.amount)}
+                  onChange={(e) => setEditingExpense({...editingExpense, amount: -Math.abs(parseFloat(e.target.value) || 0)})}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  min="0"
+                  step="0.01"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Category
+                </label>
+                <select
+                  value={editingExpense.category || 'Other'}
+                  onChange={(e) => setEditingExpense({...editingExpense, category: e.target.value})}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  {expenseCategories.map(cat => (
+                    <option key={cat} value={cat}>{cat}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Date
+                </label>
+                <input
+                  type="date"
+                  value={editingExpense.date.split('T')[0]}
+                  onChange={(e) => setEditingExpense({...editingExpense, date: e.target.value})}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  required
+                />
+              </div>
+              <div className="flex gap-3 pt-4">
+                <button
+                  type="button"
+                  onClick={() => setEditingExpense(null)}
+                  className="flex-1 px-4 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                >
+                  Save Changes
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirm && expenseToDelete && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl max-w-md w-full">
+            <div className="p-6">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="p-2 bg-red-100 rounded-full">
+                  <Trash2 className="h-5 w-5 text-red-600" />
+                </div>
+                <h2 className="text-xl font-bold text-gray-900">Delete Expense</h2>
+              </div>
+              
+              <p className="text-gray-600 mb-4">
+                Are you sure you want to delete this expense?
+              </p>
+              
+              <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 mb-6">
+                <p className="font-medium text-gray-900">{expenseToDelete.description}</p>
+                <p className="text-sm text-gray-600">
+                  €{Math.abs(expenseToDelete.amount).toLocaleString()} • {expenseToDelete.category} • {new Date(expenseToDelete.date).toLocaleDateString()}
+                </p>
+              </div>
+              
+              <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-6">
+                <p className="text-red-800 text-sm font-medium">⚠️ This action cannot be undone!</p>
+              </div>
+
+              <div className="flex gap-3">
+                <button
+                  onClick={() => {
+                    setShowDeleteConfirm(false);
+                    setExpenseToDelete(null);
+                  }}
+                  className="flex-1 px-4 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => {
+                    // For now, just show an alert - actual delete functionality would go here
+                    alert('Delete functionality would be implemented here with deleteTransaction function');
+                    setShowDeleteConfirm(false);
+                    setExpenseToDelete(null);
+                  }}
+                  className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2"
+                >
+                  Delete Expense
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

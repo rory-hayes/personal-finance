@@ -12,6 +12,17 @@ const Assets: React.FC = () => {
     category: 'Other',
     value: '',
   });
+  
+  // Confirmation modal state
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [assetToDelete, setAssetToDelete] = useState<Asset | null>(null);
+
+  // Validation state
+  const [validationErrors, setValidationErrors] = useState<{
+    name?: string;
+    value?: string;
+  }>({});
+  const [showValidation, setShowValidation] = useState(false);
 
   const assetCategories = [
     { value: 'Real Estate', icon: Home, color: 'bg-blue-100 text-blue-600' },
@@ -26,15 +37,53 @@ const Assets: React.FC = () => {
     return cat || assetCategories[assetCategories.length - 1];
   };
 
+  // Validation functions
+  const validateForm = () => {
+    const errors: { name?: string; value?: string } = {};
+    
+    // Validate name
+    if (!formData.name.trim()) {
+      errors.name = 'Asset name is required';
+    } else if (formData.name.trim().length < 2) {
+      errors.name = 'Asset name must be at least 2 characters';
+    }
+    
+    // Validate value
+    if (!formData.value.trim()) {
+      errors.value = 'Asset value is required';
+    } else {
+      const value = parseFloat(formData.value);
+      if (isNaN(value)) {
+        errors.value = 'Please enter a valid number';
+      } else if (value < 0) {
+        errors.value = 'Asset value must be positive';
+      } else if (value === 0) {
+        errors.value = 'Asset value must be greater than 0';
+      }
+    }
+    
+    setValidationErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  const clearValidationError = (field: string) => {
+    if (validationErrors[field as keyof typeof validationErrors]) {
+      setValidationErrors(prev => ({
+        ...prev,
+        [field]: undefined
+      }));
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setShowValidation(true);
     
-    const value = parseFloat(formData.value);
-    if (isNaN(value) || value < 0) {
-      alert('Please enter a valid positive number for the asset value');
+    if (!validateForm()) {
       return;
     }
 
+    const value = parseFloat(formData.value);
     const assetData = {
       name: formData.name.trim(),
       category: formData.category,
@@ -73,6 +122,43 @@ const Assets: React.FC = () => {
     setFormData({ name: '', category: 'Other', value: '' });
     setEditingAsset(null);
     setShowAddForm(false);
+    setValidationErrors({});
+    setShowValidation(false);
+  };
+
+  const handleNameChange = (value: string) => {
+    setFormData(prev => ({ ...prev, name: value }));
+    if (value.trim()) clearValidationError('name');
+  };
+
+  const handleValueChange = (value: string) => {
+    setFormData(prev => ({ ...prev, value }));
+    if (value.trim()) clearValidationError('value');
+  };
+
+  // Delete confirmation handlers
+  const handleDeleteAsset = (asset: Asset) => {
+    setAssetToDelete(asset);
+    setShowDeleteConfirm(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!assetToDelete) return;
+
+    try {
+      await deleteAsset(assetToDelete.id);
+      console.log('✅ Asset deleted successfully');
+      setShowDeleteConfirm(false);
+      setAssetToDelete(null);
+    } catch (error) {
+      console.error('❌ Failed to delete asset:', error);
+      alert('Failed to delete asset. Please try again.');
+    }
+  };
+
+  const handleCancelDelete = () => {
+    setShowDeleteConfirm(false);
+    setAssetToDelete(null);
   };
 
   const groupedAssets = assets.reduce((acc, asset) => {
@@ -162,17 +248,26 @@ const Assets: React.FC = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-2">
-                  Asset Name
+                  Asset Name <span className="text-red-500 ml-1">*</span>
                 </label>
                 <input
                   type="text"
                   id="name"
                   value={formData.name}
-                  onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                  onChange={(e) => handleNameChange(e.target.value)}
                   placeholder="e.g., Primary Home, 2020 Honda Civic"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:border-transparent ${
+                    showValidation && validationErrors.name
+                      ? 'border-red-500 focus:ring-red-500'
+                      : 'border-gray-300 focus:ring-blue-500'
+                  }`}
                   required
                 />
+                {showValidation && validationErrors.name && (
+                  <p className="text-red-500 text-sm mt-1 flex items-center">
+                    ⚠️ {validationErrors.name}
+                  </p>
+                )}
               </div>
               
               <div>
@@ -194,19 +289,28 @@ const Assets: React.FC = () => {
             
             <div>
               <label htmlFor="value" className="block text-sm font-medium text-gray-700 mb-2">
-                Current Value ($)
+                Current Value (€) <span className="text-red-500 ml-1">*</span>
               </label>
               <input
                 type="number"
                 id="value"
                 value={formData.value}
-                onChange={(e) => setFormData(prev => ({ ...prev, value: e.target.value }))}
+                onChange={(e) => handleValueChange(e.target.value)}
                 placeholder="0.00"
                 min="0"
                 step="0.01"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:border-transparent ${
+                  showValidation && validationErrors.value
+                    ? 'border-red-500 focus:ring-red-500'
+                    : 'border-gray-300 focus:ring-blue-500'
+                }`}
                 required
               />
+              {showValidation && validationErrors.value && (
+                <p className="text-red-500 text-sm mt-1 flex items-center">
+                  ⚠️ {validationErrors.value}
+                </p>
+              )}
             </div>
 
             <div className="flex gap-3 pt-4">
@@ -251,7 +355,7 @@ const Assets: React.FC = () => {
                       </div>
                     </div>
                     <p className="text-xl font-bold text-gray-900">
-                      ${categoryTotal.toLocaleString()}
+                      €{categoryTotal.toLocaleString()}
                     </p>
                   </div>
                 </div>
@@ -275,8 +379,9 @@ const Assets: React.FC = () => {
                               <Edit3 className="h-4 w-4" />
                             </button>
                             <button
-                              onClick={() => deleteAsset(asset.id)}
+                              onClick={() => handleDeleteAsset(asset)}
                               className="p-2 text-gray-400 hover:text-red-600 transition-colors"
+                              title="Delete asset"
                             >
                               <Trash2 className="h-4 w-4" />
                             </button>
@@ -305,6 +410,52 @@ const Assets: React.FC = () => {
           >
             Add Your First Asset
           </button>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirm && assetToDelete && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl max-w-md w-full">
+            <div className="p-6">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="p-2 bg-red-100 rounded-full">
+                  <Trash2 className="h-5 w-5 text-red-600" />
+                </div>
+                <h2 className="text-xl font-bold text-gray-900">Delete Asset</h2>
+              </div>
+              
+              <p className="text-gray-600 mb-4">
+                Are you sure you want to delete this asset?
+              </p>
+              
+              <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 mb-6">
+                <p className="font-medium text-gray-900">{assetToDelete.name}</p>
+                <p className="text-sm text-gray-600">
+                  €{assetToDelete.value.toLocaleString()} • {assetToDelete.category}
+                </p>
+              </div>
+              
+              <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-6">
+                <p className="text-red-800 text-sm font-medium">⚠️ This action cannot be undone!</p>
+              </div>
+
+              <div className="flex gap-3">
+                <button
+                  onClick={handleCancelDelete}
+                  className="flex-1 px-4 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleConfirmDelete}
+                  className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2"
+                >
+                  Delete Asset
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>

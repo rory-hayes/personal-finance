@@ -363,8 +363,16 @@ export const useFinanceData = () => {
         .eq('id', userId);
 
       if (error) throw error;
+
+      // Update local state
+      setUsers(prev => prev.map(u => 
+        u.id === userId ? { ...u, monthlyIncome: income } : u
+      ));
+
+      console.log('User income updated successfully:', userId, income);
     } catch (error) {
       console.error('Error updating user income:', error);
+      throw error; // Re-throw so UI can handle the error
     }
   }, [user]);
 

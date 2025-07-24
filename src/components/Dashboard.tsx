@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { 
   Settings, 
   Plus, 
@@ -68,6 +68,27 @@ const Dashboard: React.FC = () => {
   const [showVestingModal, setShowVestingModal] = useState(false);
   const [showAllocationModal, setShowAllocationModal] = useState(false);
   const [allocationAmounts, setAllocationAmounts] = useState<Record<string, string>>({});
+
+  // Handle Esc key to close modals
+  useEffect(() => {
+    const handleEscKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        if (showAddCardModal) {
+          setShowAddCardModal(false);
+          setSelectedCards(new Set());
+        }
+        if (showAllocationModal) {
+          setShowAllocationModal(false);
+          setAllocationAmounts({});
+        }
+      }
+    };
+
+    if (showAddCardModal || showAllocationModal) {
+      document.addEventListener('keydown', handleEscKey);
+      return () => document.removeEventListener('keydown', handleEscKey);
+    }
+  }, [showAddCardModal, showAllocationModal]);
 
   // Get current user
   const currentUser = financeData.users[0] || { id: 'anonymous-user', name: 'User' };
@@ -314,11 +335,16 @@ const Dashboard: React.FC = () => {
 
       {/* Add Card Modal - Enhanced with Multi-Select */}
       {showAddCardModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl p-6 w-full max-w-6xl max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between mb-6">
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="add-card-modal-title"
+        >
+          <div className="bg-white rounded-xl p-6 w-full max-w-6xl max-h-[90vh] overflow-y-auto" role="document">
+                          <div className="flex items-center justify-between mb-6">
               <div>
-                <h2 className="text-2xl font-bold text-gray-900">Add Dashboard Cards</h2>
+                <h2 id="add-card-modal-title" className="text-2xl font-bold text-gray-900">Add Dashboard Cards</h2>
                 <p className="text-gray-600 mt-1">
                   Click cards to select them, then click "Add Selected Cards" to add them to your dashboard
                 </p>
@@ -425,10 +451,15 @@ const Dashboard: React.FC = () => {
 
       {/* Monthly Allocation Modal */}
       {showAllocationModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto">
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="allocation-modal-title"
+        >
+          <div className="bg-white rounded-xl p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto" role="document">
             <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-bold text-gray-900">Monthly Allocation</h2>
+              <h2 id="allocation-modal-title" className="text-xl font-bold text-gray-900">Monthly Allocation</h2>
               <button
                 onClick={() => {
                   setShowAllocationModal(false);

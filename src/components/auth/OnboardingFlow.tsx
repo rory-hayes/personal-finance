@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { CheckCircle, ArrowRight, ArrowLeft, Users, DollarSign, Wallet, User } from 'lucide-react';
+import { CheckCircle, ArrowRight, ArrowLeft, Users, Euro, Wallet, User } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { HouseholdMember } from '../../types';
 import { isSupabaseMock } from '../../lib/supabase';
@@ -18,6 +18,15 @@ const OnboardingFlow: React.FC = () => {
       { name: '', type: 'savings', balance: '' }
     ]
   });
+
+  // Validation state
+  const [validationErrors, setValidationErrors] = useState<{
+    household_members?: string[];
+    monthly_income?: string;
+    accounts?: { name?: string; balance?: string }[];
+  }>({});
+
+  const [showValidation, setShowValidation] = useState(false);
 
   const steps = [
     {
@@ -47,8 +56,82 @@ const OnboardingFlow: React.FC = () => {
     },
   ];
 
+  // Validation functions
+  const validateStep3 = () => {
+    const errors: string[] = [];
+    formData.household_members.forEach((member, index) => {
+      if (!member.name.trim()) {
+        errors[index] = index === 0 ? 'Your name is required' : 'Member name is required';
+      }
+    });
+    
+    setValidationErrors(prev => ({ ...prev, household_members: errors }));
+    return errors.length === 0;
+  };
+
+  const validateStep4 = () => {
+    const monthlyIncome = parseFloat(formData.monthly_income);
+    let error = '';
+    
+    if (!formData.monthly_income.trim()) {
+      error = 'Monthly income is required';
+    } else if (isNaN(monthlyIncome) || monthlyIncome < 0) {
+      error = 'Please enter a valid positive number';
+    } else if (monthlyIncome === 0) {
+      error = 'Monthly income must be greater than 0';
+    }
+    
+    setValidationErrors(prev => ({ ...prev, monthly_income: error }));
+    return !error;
+  };
+
+  const validateStep5 = () => {
+    const accountErrors: { name?: string; balance?: string }[] = [];
+    let hasErrors = false;
+    
+    formData.accounts.forEach((account, index) => {
+      const errors: { name?: string; balance?: string } = {};
+      
+      if (!account.name.trim()) {
+        errors.name = 'Account name is required';
+        hasErrors = true;
+      }
+      
+      if (!account.balance.trim()) {
+        errors.balance = 'Balance is required';
+        hasErrors = true;
+      } else {
+        const balance = parseFloat(account.balance);
+        if (isNaN(balance) || balance < 0) {
+          errors.balance = 'Please enter a valid positive number';
+          hasErrors = true;
+        }
+      }
+      
+      accountErrors[index] = errors;
+    });
+    
+    setValidationErrors(prev => ({ ...prev, accounts: accountErrors }));
+    return !hasErrors;
+  };
+
   const handleNext = () => {
-    if (currentStep < steps.length) {
+    setShowValidation(true);
+    
+    // Validate current step before proceeding
+    let isValid = true;
+    
+    if (currentStep === 3) {
+      isValid = validateStep3();
+    } else if (currentStep === 4) {
+      isValid = validateStep4();
+    } else if (currentStep === 5) {
+      isValid = validateStep5();
+    }
+    
+    if (isValid && currentStep < steps.length) {
+      setShowValidation(false);
+      setValidationErrors({});
       setCurrentStep(currentStep + 1);
     }
   };
@@ -89,6 +172,28 @@ const OnboardingFlow: React.FC = () => {
         i === index ? { ...member, name } : member
       )
     }));
+
+    // Clear validation error for this field when user starts typing
+    if (name.trim() && validationErrors.household_members?.[index]) {
+      const updatedErrors = [...(validationErrors.household_members || [])];
+      delete updatedErrors[index];
+      setValidationErrors(prev => ({
+        ...prev,
+        household_members: updatedErrors
+      }));
+    }
+  };
+
+  const updateMonthlyIncome = (value: string) => {
+    setFormData(prev => ({ ...prev, monthly_income: value }));
+    
+    // Clear validation error when user starts typing
+    if (value.trim() && validationErrors.monthly_income) {
+      setValidationErrors(prev => ({
+        ...prev,
+        monthly_income: undefined
+      }));
+    }
   };
 
   const handleAccountChange = (index: number, field: string, value: string) => {
@@ -98,9 +203,37 @@ const OnboardingFlow: React.FC = () => {
         i === index ? { ...account, [field]: value } : account
       )
     }));
+
+    // Clear validation error for this field when user starts typing
+    if (value.trim() && validationErrors.accounts?.[index]?.[field as keyof { name?: string; balance?: string }]) {
+      const updatedAccountErrors = [...(validationErrors.accounts || [])];
+      if (updatedAccountErrors[index]) {
+        updatedAccountErrors[index] = {
+          ...updatedAccountErrors[index],
+          [field]: undefined
+        };
+      }
+      setValidationErrors(prev => ({
+        ...prev,
+        accounts: updatedAccountErrors
+      }));
+    }
   };
 
   const handleComplete = async () => {
+    // Final validation before submission
+    setShowValidation(true);
+    
+    const step3Valid = validateStep3();
+    const step4Valid = validateStep4();
+    const step5Valid = validateStep5();
+    
+    if (!step3Valid || !step4Valid || !step5Valid) {
+      // Scroll to top to show validation errors
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
+    
     setLoading(true);
     
     try {
@@ -217,7 +350,7 @@ const OnboardingFlow: React.FC = () => {
           <p className="text-xs text-gray-600">Member details</p>
         </div>
         <div className="text-center p-4 bg-gray-50 rounded-lg">
-          <DollarSign className="h-6 w-6 text-green-600 mx-auto mb-2" />
+          <Euro className="h-6 w-6 text-green-600 mx-auto mb-2" />
           <p className="text-sm font-medium text-gray-900">Income</p>
           <p className="text-xs text-gray-600">Monthly earnings</p>
         </div>
@@ -317,6 +450,7 @@ const OnboardingFlow: React.FC = () => {
           <div key={index} className="space-y-2">
             <label className="block text-sm font-medium text-gray-700">
               {index === 0 ? 'Primary Account Holder (You)' : `Household Member ${index + 1}`}
+              <span className="text-red-500 ml-1">*</span>
             </label>
             <div className="relative">
               <User className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
@@ -325,10 +459,19 @@ const OnboardingFlow: React.FC = () => {
                 value={member.name}
                 onChange={(e) => updateMemberName(index, e.target.value)}
                 placeholder={index === 0 ? "Your full name" : "Member's name"}
-                className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className={`w-full pl-10 pr-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:border-transparent ${
+                  showValidation && validationErrors.household_members?.[index]
+                    ? 'border-red-500 focus:ring-red-500'
+                    : 'border-gray-300 focus:ring-blue-500'
+                }`}
                 required
               />
             </div>
+            {showValidation && validationErrors.household_members?.[index] && (
+              <p className="text-red-500 text-sm mt-1 flex items-center">
+                ⚠️ {validationErrors.household_members[index]}
+              </p>
+            )}
           </div>
         ))}
         
@@ -350,8 +493,7 @@ const OnboardingFlow: React.FC = () => {
         </button>
         <button
           onClick={handleNext}
-          disabled={!formData.household_members[0]?.name.trim()}
-          className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center gap-2"
+          className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"
         >
           Continue
           <ArrowRight className="h-4 w-4" />
@@ -370,15 +512,32 @@ const OnboardingFlow: React.FC = () => {
       </p>
 
       <div className="max-w-md mx-auto">
-        <div className="relative">
-          <DollarSign className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
-          <input
-            type="number"
-            value={formData.monthly_income}
-            onChange={(e) => setFormData(prev => ({ ...prev, monthly_income: e.target.value }))}
-            placeholder="5000"
-            className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-lg"
-          />
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Monthly Income (€) <span className="text-red-500 ml-1">*</span>
+          </label>
+          <div className="relative">
+            <Euro className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
+            <input
+              type="number"
+              value={formData.monthly_income}
+              onChange={(e) => updateMonthlyIncome(e.target.value)}
+              placeholder="5000"
+              min="0"
+              step="0.01"
+              className={`w-full pl-10 pr-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:border-transparent text-lg ${
+                showValidation && validationErrors.monthly_income
+                  ? 'border-red-500 focus:ring-red-500'
+                  : 'border-gray-300 focus:ring-blue-500'
+              }`}
+              required
+            />
+          </div>
+          {showValidation && validationErrors.monthly_income && (
+            <p className="text-red-500 text-sm mt-1 flex items-center">
+              ⚠️ {validationErrors.monthly_income}
+            </p>
+          )}
         </div>
         
         <div className="mt-6 p-4 bg-gray-50 rounded-lg">
@@ -428,31 +587,53 @@ const OnboardingFlow: React.FC = () => {
             <div className="space-y-3">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Account Name
+                  Account Name <span className="text-red-500 ml-1">*</span>
                 </label>
                 <input
                   type="text"
                   value={account.name}
                   onChange={(e) => handleAccountChange(index, 'name', e.target.value)}
                   placeholder={`My ${account.type === 'checking' ? 'Checking' : 'Savings'} Account`}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:border-transparent ${
+                    showValidation && validationErrors.accounts?.[index]?.name
+                      ? 'border-red-500 focus:ring-red-500'
+                      : 'border-gray-300 focus:ring-blue-500'
+                  }`}
+                  required
                 />
+                {showValidation && validationErrors.accounts?.[index]?.name && (
+                  <p className="text-red-500 text-sm mt-1 flex items-center">
+                    ⚠️ {validationErrors.accounts[index]?.name}
+                  </p>
+                )}
               </div>
               
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Current Balance
+                  Current Balance (€) <span className="text-red-500 ml-1">*</span>
                 </label>
                 <div className="relative">
-                  <DollarSign className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
+                  <Euro className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
                   <input
                     type="number"
                     value={account.balance}
                     onChange={(e) => handleAccountChange(index, 'balance', e.target.value)}
                     placeholder="1000"
-                    className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    min="0"
+                    step="0.01"
+                    className={`w-full pl-9 pr-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:border-transparent ${
+                      showValidation && validationErrors.accounts?.[index]?.balance
+                        ? 'border-red-500 focus:ring-red-500'
+                        : 'border-gray-300 focus:ring-blue-500'
+                    }`}
+                    required
                   />
                 </div>
+                {showValidation && validationErrors.accounts?.[index]?.balance && (
+                  <p className="text-red-500 text-sm mt-1 flex items-center">
+                    ⚠️ {validationErrors.accounts[index]?.balance}
+                  </p>
+                )}
               </div>
             </div>
           </div>
@@ -460,8 +641,8 @@ const OnboardingFlow: React.FC = () => {
         
         <div className="p-4 bg-blue-50 rounded-lg">
           <p className="text-sm text-blue-700">
-            <strong>Optional:</strong> You can skip this step and add accounts later if you prefer.
-            Having account information helps with better financial tracking.
+            <strong>Required:</strong> Please add at least your main checking and savings accounts.
+            This helps us provide accurate financial tracking and budgeting features.
           </p>
         </div>
       </div>

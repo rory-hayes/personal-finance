@@ -30,6 +30,16 @@ const Budget: React.FC = () => {
     categories: {} as Record<string, string>
   });
 
+  // Feedback states
+  const [feedbackMessage, setFeedbackMessage] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+
+  // Calculate running totals for real-time feedback
+  const totalBudget = parseFloat(budgetFormData.totalBudget) || 0;
+  const categoryTotal = Object.values(budgetFormData.categories)
+    .reduce((sum, amount) => sum + (parseFloat(amount) || 0), 0);
+  const remainingBudget = totalBudget - categoryTotal;
+  const isOverBudget = categoryTotal > totalBudget;
+
   const expenseCategories = [
     'Groceries', 'Dining', 'Transportation', 'Utilities', 'Housing', 
     'Healthcare', 'Entertainment', 'Shopping', 'Bills', 'Insurance', 'Other'
@@ -40,33 +50,74 @@ const Budget: React.FC = () => {
     currentMonthBudgets.some(b => b.id === bc.budgetId)
   );
 
+  // Handle Esc key to close modal
+  useEffect(() => {
+    const handleEscKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        if (showBudgetForm) {
+          setShowBudgetForm(false);
+        }
+      }
+    };
+
+    if (showBudgetForm) {
+      document.addEventListener('keydown', handleEscKey);
+      return () => document.removeEventListener('keydown', handleEscKey);
+    }
+  }, [showBudgetForm]);
+
+  // Auto-dismiss feedback messages
+  useEffect(() => {
+    if (feedbackMessage) {
+      const timer = setTimeout(() => {
+        setFeedbackMessage(null);
+      }, 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [feedbackMessage]);
+
   const handleCreateBudget = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    const totalBudget = parseFloat(budgetFormData.totalBudget);
-    if (isNaN(totalBudget) || totalBudget <= 0) {
-      alert('Please enter a valid budget amount');
-      return;
+    try {
+      const totalBudget = parseFloat(budgetFormData.totalBudget);
+      if (isNaN(totalBudget) || totalBudget <= 0) {
+        setFeedbackMessage({ type: 'error', message: 'Please enter a valid budget amount' });
+        return;
+      }
+
+      const categoryBreakdown = Object.entries(budgetFormData.categories)
+        .filter(([_, amount]) => amount && parseFloat(amount) > 0)
+        .map(([category, amount]) => ({
+          category,
+          allocatedAmount: parseFloat(amount)
+        }));
+
+      const totalCategoryAmount = categoryBreakdown.reduce((sum, cat) => sum + cat.allocatedAmount, 0);
+      
+      if (totalCategoryAmount > totalBudget) {
+        setFeedbackMessage({ type: 'error', message: 'Category allocations exceed total budget' });
+        return;
+      }
+
+      await createMonthlyBudget(budgetFormData.userId, `${selectedMonth}-01`, totalBudget, categoryBreakdown);
+      
+      // Success feedback
+      const userName = users.find(u => u.id === budgetFormData.userId)?.name || 'User';
+      setFeedbackMessage({ 
+        type: 'success', 
+        message: `Budget successfully created for ${userName} with €${totalBudget.toLocaleString()} total budget` 
+      });
+      
+      setBudgetFormData({ userId: '', totalBudget: '', categories: {} });
+      setShowBudgetForm(false);
+    } catch (error) {
+      console.error('Error creating budget:', error);
+      setFeedbackMessage({ 
+        type: 'error', 
+        message: 'Failed to create budget. Please try again or contact support if the issue persists.' 
+      });
     }
-
-    const categoryBreakdown = Object.entries(budgetFormData.categories)
-      .filter(([_, amount]) => amount && parseFloat(amount) > 0)
-      .map(([category, amount]) => ({
-        category,
-        allocatedAmount: parseFloat(amount)
-      }));
-
-    const totalCategoryAmount = categoryBreakdown.reduce((sum, cat) => sum + cat.allocatedAmount, 0);
-    
-    if (totalCategoryAmount > totalBudget) {
-      alert('Category allocations exceed total budget');
-      return;
-    }
-
-    await createMonthlyBudget(budgetFormData.userId, `${selectedMonth}-01`, totalBudget, categoryBreakdown);
-    
-    setBudgetFormData({ userId: '', totalBudget: '', categories: {} });
-    setShowBudgetForm(false);
   };
 
   const handleAssignMainAccount = async (userId: string, accountId: string) => {
@@ -103,6 +154,32 @@ const Budget: React.FC = () => {
 
   return (
     <div className="space-y-6">
+      {/* Feedback Messages */}
+      {feedbackMessage && (
+        <div className={`p-4 rounded-lg border-l-4 ${
+          feedbackMessage.type === 'success' 
+            ? 'bg-green-50 border-green-400 text-green-800' 
+            : 'bg-red-50 border-red-400 text-red-800'
+        }`}>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              {feedbackMessage.type === 'success' ? (
+                <CheckCircle className="h-5 w-5 text-green-600" />
+              ) : (
+                <AlertTriangle className="h-5 w-5 text-red-600" />
+              )}
+              <span className="font-medium">{feedbackMessage.message}</span>
+            </div>
+            <button 
+              onClick={() => setFeedbackMessage(null)}
+              className="text-gray-400 hover:text-gray-600"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h2 className="text-3xl font-bold text-gray-900 mb-2">Budget Management</h2>
@@ -276,10 +353,19 @@ const Budget: React.FC = () => {
                     required
                   >
                     <option value="">Select User</option>
-                    {users.map(user => (
-                      <option key={user.id} value={user.id}>{user.name}</option>
-                    ))}
+                    {users.length > 0 ? (
+                      users.map(user => (
+                        <option key={user.id} value={user.id}>{user.name}</option>
+                      ))
+                    ) : (
+                      <option value="" disabled>No users found - Please add household members first</option>
+                    )}
                   </select>
+                  {users.length === 0 && (
+                    <p className="text-sm text-red-600 mt-1">
+                      ⚠️ No household members found. Please add users in the Household section first.
+                    </p>
+                  )}
                 </div>
                 
                 <div>
@@ -323,23 +409,49 @@ const Budget: React.FC = () => {
                   ))}
                 </div>
                 
-                <div className="mt-4 p-3 bg-blue-50 rounded-lg">
-                  <div className="flex justify-between text-sm">
-                    <span>Total Allocated:</span>
-                    <span className="font-semibold">
-                      €{Object.values(budgetFormData.categories)
-                        .reduce((sum, val) => sum + (parseFloat(val) || 0), 0)
-                        .toLocaleString()}
-                    </span>
+                <div className={`mt-4 p-4 rounded-lg border-2 ${
+                  isOverBudget 
+                    ? 'bg-red-50 border-red-200' 
+                    : remainingBudget === 0 && totalBudget > 0
+                    ? 'bg-green-50 border-green-200'
+                    : 'bg-blue-50 border-blue-200'
+                }`}>
+                  <h4 className="font-medium text-gray-900 mb-3">Budget Summary</h4>
+                  
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span>Total Budget:</span>
+                      <span className="font-semibold">€{totalBudget.toLocaleString()}</span>
+                    </div>
+                    
+                    <div className="flex justify-between">
+                      <span>Total Allocated:</span>
+                      <span className={`font-semibold ${isOverBudget ? 'text-red-600' : 'text-gray-900'}`}>
+                        €{categoryTotal.toLocaleString()}
+                      </span>
+                    </div>
+                    
+                    <div className="flex justify-between border-t border-gray-200 pt-2">
+                      <span>Remaining:</span>
+                      <span className={`font-bold ${
+                        isOverBudget ? 'text-red-600' : remainingBudget === 0 ? 'text-green-600' : 'text-blue-600'
+                      }`}>
+                        €{remainingBudget.toLocaleString()}
+                      </span>
+                    </div>
                   </div>
-                  <div className="flex justify-between text-sm mt-1">
-                    <span>Budget Remaining:</span>
-                    <span className="font-semibold">
-                      €{(parseFloat(budgetFormData.totalBudget) || 0) - 
-                        Object.values(budgetFormData.categories)
-                          .reduce((sum, val) => sum + (parseFloat(val) || 0), 0)}
-                    </span>
-                  </div>
+                  
+                  {isOverBudget && (
+                    <div className="mt-3 p-2 bg-red-100 border border-red-300 rounded text-red-800 text-sm">
+                      ⚠️ <strong>Over Budget!</strong> You've allocated €{(categoryTotal - totalBudget).toLocaleString()} more than your budget allows.
+                    </div>
+                  )}
+                  
+                  {remainingBudget === 0 && totalBudget > 0 && !isOverBudget && (
+                    <div className="mt-3 p-2 bg-green-100 border border-green-300 rounded text-green-800 text-sm">
+                      ✅ <strong>Perfect!</strong> You've allocated your entire budget.
+                    </div>
+                  )}
                 </div>
               </div>
 

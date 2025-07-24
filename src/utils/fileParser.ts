@@ -1,6 +1,6 @@
 import { Transaction } from '../types';
 
-export const parseCSV = (content: string, userName?: string): Transaction[] => {
+export const parseCSV = (content: string, userId?: string): Transaction[] => {
   const lines = content.trim().split('\n');
   const transactions: Transaction[] = [];
   
@@ -49,7 +49,7 @@ export const parseCSV = (content: string, userName?: string): Transaction[] => {
             description: description,
             amount: amount,
             category: category || categorizeTransaction(description),
-            userName: userName,
+            userId: userId || 'unknown',
           });
           console.log(`Added transaction: ${description} - ${amount}`);
         }
@@ -63,7 +63,7 @@ export const parseCSV = (content: string, userName?: string): Transaction[] => {
   return transactions;
 };
 
-export const parsePDF = (content: string, userName?: string): Transaction[] => {
+export const parsePDF = (content: string, userId?: string): Transaction[] => {
   // For MVP, we'll do basic PDF text parsing
   // In production, you'd use a proper PDF parsing library
   const lines = content.split('\n');
@@ -86,7 +86,7 @@ export const parsePDF = (content: string, userName?: string): Transaction[] => {
           description: description.trim(),
           amount: amount,
           category: categorizeTransaction(description),
-          userName: userName,
+          userId: userId || 'unknown',
         });
       }
     }
@@ -162,64 +162,135 @@ const parseAmount = (amountStr: string): number => {
 const parseDate = (dateStr: string): string | null => {
   if (!dateStr) return null;
   
-  // Try multiple date formats
+  // Clean the date string
+  const cleanDate = dateStr.trim().replace(/["""]/g, '');
+  console.log(`Parsing date: "${cleanDate}"`);
+  
+  // Try ISO format first (YYYY-MM-DD, YYYY/MM/DD, YYYY.MM.DD)
+  const isoMatch = cleanDate.match(/^(\d{4})[-/.]\s*(\d{1,2})[-/.]\s*(\d{1,2})$/);
+  if (isoMatch) {
+    const [, year, month, day] = isoMatch;
+    const date = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+    if (!isNaN(date.getTime()) && date.getFullYear() === parseInt(year)) {
+      console.log(`✅ Parsed ISO date: ${cleanDate} -> ${date.toISOString()}`);
+      return date.toISOString();
+    }
+  }
+
+  // Try different date formats in order of reliability
   const formats = [
-    /(\d{1,2})\/(\d{1,2})\/(\d{2})$/, // DD/MM/YY or MM/DD/YY (2-digit year)
-    /(\d{1,2})\/(\d{1,2})\/(\d{4})/, // MM/DD/YYYY or DD/MM/YYYY
-    /(\d{1,2})\.(\d{1,2})\.(\d{4})/, // DD.MM.YYYY (European)
-    /(\d{1,2})\.(\d{1,2})\.(\d{2})/, // DD.MM.YY (European)
-    /(\d{4})-(\d{1,2})-(\d{1,2})/, // YYYY-MM-DD
-    /(\d{1,2})-(\d{1,2})-(\d{4})/, // MM-DD-YYYY or DD-MM-YYYY
-    /(\d{1,2})-(\d{1,2})-(\d{2})/, // MM-DD-YY or DD-MM-YY
-    /(\d{1,2})\s+(\w+)\s+(\d{4})/, // DD Month YYYY
+    // European formats (DD/MM/YYYY, DD.MM.YYYY, DD-MM-YYYY)
+    {
+      regex: /^(\d{1,2})[-/.](\d{1,2})[-/.](\d{4})$/,
+      parse: (match: RegExpMatchArray) => {
+        const [, day, month, year] = match;
+        return { day: parseInt(day), month: parseInt(month), year: parseInt(year), isEuropean: true };
+      }
+    },
+    // European 2-digit year (DD/MM/YY, DD.MM.YY, DD-MM-YY)
+    {
+      regex: /^(\d{1,2})[-/.](\d{1,2})[-/.](\d{2})$/,
+      parse: (match: RegExpMatchArray) => {
+        const [, day, month, yearShort] = match;
+        let year = parseInt(yearShort);
+        year = year < 50 ? 2000 + year : 1900 + year; // 00-49 = 20xx, 50-99 = 19xx
+        return { day: parseInt(day), month: parseInt(month), year, isEuropean: true };
+      }
+    },
+    // US formats (MM/DD/YYYY, MM-DD-YYYY)
+    {
+      regex: /^(\d{1,2})[-/.](\d{1,2})[-/.](\d{4})$/,
+      parse: (match: RegExpMatchArray) => {
+        const [, month, day, year] = match;
+        return { day: parseInt(day), month: parseInt(month), year: parseInt(year), isEuropean: false };
+      }
+    },
+    // Named month formats (DD Month YYYY, Month DD YYYY)
+    {
+      regex: /^(\d{1,2})\s+(\w+)\s+(\d{4})$/,
+      parse: (match: RegExpMatchArray) => {
+        const [, day, monthName, year] = match;
+        const date = new Date(`${monthName} ${day}, ${year}`);
+        return { date };
+      }
+    },
+    {
+      regex: /^(\w+)\s+(\d{1,2}),?\s+(\d{4})$/,
+      parse: (match: RegExpMatchArray) => {
+        const [, monthName, day, year] = match;
+        const date = new Date(`${monthName} ${day}, ${year}`);
+        return { date };
+      }
+    }
   ];
 
   for (const format of formats) {
-    const match = dateStr.match(format);
+    const match = cleanDate.match(format.regex);
     if (match) {
       try {
-        let date: Date;
-        const [, part1, part2, part3] = match;
+        const parsed = format.parse(match);
         
-        if (format.source.includes('\\d{4}-')) {
-          // YYYY-MM-DD format
-          date = new Date(parseInt(part1), parseInt(part2) - 1, parseInt(part3));
-        } else if (format.source.includes('\\w+')) {
-          // DD Month YYYY format
-          date = new Date(`${part2} ${part1}, ${part3}`);
+        if ('date' in parsed) {
+          // Pre-parsed date from named month
+          if (!isNaN(parsed.date.getTime())) {
+            console.log(`✅ Parsed named month date: ${cleanDate} -> ${parsed.date.toISOString()}`);
+            return parsed.date.toISOString();
+          }
         } else {
-          // Handle 2-digit years
-          let year = parseInt(part3);
-          if (year < 100) {
-            // Convert 2-digit year to 4-digit (assume 20xx for years 00-99)
-            year = year < 50 ? 2000 + year : 1900 + year;
+          const { day, month, year, isEuropean } = parsed;
+          
+          // Validate day and month ranges
+          if (month < 1 || month > 12 || day < 1 || day > 31) {
+            continue;
           }
           
-          // Try DD/MM/YYYY first (European), then MM/DD/YYYY
-          const day = parseInt(part1);
-          const month = parseInt(part2);
-          
-          if (day > 12) {
-            // Must be DD/MM/YYYY
-            date = new Date(year, month - 1, day);
-          } else if (month > 12) {
-            // Must be MM/DD/YYYY
-            date = new Date(year, day - 1, month);
-          } else {
-            // Ambiguous - default to DD/MM/YYYY (European)
-            date = new Date(year, month - 1, day);
+          // For ambiguous cases, try to determine format
+          if (day > 12 && month <= 12) {
+            // Must be DD/MM format
+            const date = new Date(year, month - 1, day);
+            if (!isNaN(date.getTime())) {
+              console.log(`✅ Parsed DD/MM date: ${cleanDate} -> ${date.toISOString()}`);
+              return date.toISOString();
+            }
+          } else if (month > 12 && day <= 12) {
+            // Must be MM/DD format (swap them)
+            const date = new Date(year, day - 1, month);
+            if (!isNaN(date.getTime())) {
+              console.log(`✅ Parsed MM/DD date: ${cleanDate} -> ${date.toISOString()}`);
+              return date.toISOString();
+            }
+          } else if (day <= 12 && month <= 12) {
+            // Ambiguous case - use context or default to European
+            const dateEuropean = new Date(year, month - 1, day);
+            const dateUS = new Date(year, day - 1, month);
+            
+            // Prefer European format by default, but validate the date makes sense
+            const preferredDate = isEuropean !== false ? dateEuropean : dateUS;
+            if (!isNaN(preferredDate.getTime())) {
+              console.log(`✅ Parsed ambiguous date (${isEuropean ? 'European' : 'US'} format): ${cleanDate} -> ${preferredDate.toISOString()}`);
+              return preferredDate.toISOString();
+            }
           }
         }
-        
-        if (!isNaN(date.getTime())) {
-          return date.toISOString();
-        }
-      } catch {
+      } catch (error) {
+        console.warn(`Error parsing date with format:`, cleanDate, error);
         continue;
       }
     }
   }
 
+  // Final fallback: try Date constructor directly
+  try {
+    const fallbackDate = new Date(cleanDate);
+    if (!isNaN(fallbackDate.getTime())) {
+      console.log(`✅ Parsed fallback date: ${cleanDate} -> ${fallbackDate.toISOString()}`);
+      return fallbackDate.toISOString();
+    }
+  } catch {
+    // Ignore fallback errors
+  }
+
+  console.warn(`❌ Could not parse date: "${cleanDate}"`);
   return null;
 };
 
