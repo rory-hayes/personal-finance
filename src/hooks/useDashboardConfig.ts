@@ -2,18 +2,58 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase, isSupabaseMock } from '../lib/supabase';
 import { DashboardConfiguration, DashboardLayout, DashboardCard, CardSize, DEFAULT_CARDS } from '../types/dashboard';
 
+// Helper function to generate proper UUIDs
+const generateUUID = (): string => {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+    const r = Math.random() * 16 | 0;
+    const v = c === 'x' ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+  });
+};
+
 export const useDashboardConfig = (userId: string) => {
   const [configurations, setConfigurations] = useState<DashboardConfiguration[]>([]);
   const [currentConfig, setCurrentConfig] = useState<DashboardConfiguration | null>(null);
   const [loading, setLoading] = useState(true);
   const [editMode, setEditMode] = useState(false);
 
+  // Create default configuration with proper UUID
+  const createDefaultConfiguration = (userId: string): DashboardConfiguration => ({
+    id: generateUUID(), // Use proper UUID instead of "default-timestamp"
+    userId,
+    name: 'Main Dashboard',
+    isDefault: true,
+    layoutConfig: {
+      cards: [],
+      settings: {
+        gridColumns: 4,
+        cardSpacing: 24,
+        theme: 'light'
+      }
+    },
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  });
+
+  // Map database configuration to our interface
+  const mapDatabaseToConfig = (dbConfig: any): DashboardConfiguration => ({
+    id: dbConfig.id,
+    userId: dbConfig.user_id,
+    name: dbConfig.name,
+    isDefault: dbConfig.is_default || false,
+    layoutConfig: dbConfig.layout_config || { cards: [], settings: { gridColumns: 4, cardSpacing: 24, theme: 'light' } },
+    createdAt: dbConfig.created_at,
+    updatedAt: dbConfig.updated_at
+  });
+
   // Load dashboard configurations
   const loadConfigurations = useCallback(async () => {
     try {
       setLoading(true);
+      console.log('🔍 Loading dashboard configurations for user:', userId);
 
       if (isSupabaseMock) {
+        console.log('⚠️ Running in mock mode, using localStorage');
         // Use localStorage fallback
         const savedConfigs = localStorage.getItem(`dashboardConfigs_${userId}`);
         const configs = savedConfigs ? JSON.parse(savedConfigs) : [];
@@ -39,12 +79,12 @@ export const useDashboardConfig = (userId: string) => {
         .order('created_at', { ascending: false });
 
       if (error) {
-        console.error('Database error loading configurations:', error);
+        console.error('❌ Database error loading configurations:', error);
         throw error;
       }
 
       if (!data || data.length === 0) {
-        console.log('No configurations found, creating default');
+        console.log('📝 No configurations found, creating default');
         // Create default configuration
         const defaultConfig = createDefaultConfiguration(userId);
         await saveConfiguration(defaultConfig);
@@ -54,10 +94,11 @@ export const useDashboardConfig = (userId: string) => {
       const configs = data.map(mapDatabaseToConfig);
       setConfigurations(configs);
       setCurrentConfig(configs.find((c: DashboardConfiguration) => c.isDefault) || configs[0]);
+      console.log('✅ Loaded configurations from database:', configs);
 
     } catch (error) {
-      console.error('Error loading dashboard configurations:', error);
-      console.warn('Falling back to localStorage');
+      console.error('💥 Error loading dashboard configurations:', error);
+      console.warn('🔄 Falling back to localStorage');
       
       // Fallback to localStorage
       const savedConfigs = localStorage.getItem(`dashboardConfigs_${userId}`);
@@ -66,7 +107,7 @@ export const useDashboardConfig = (userId: string) => {
       try {
         configs = savedConfigs ? JSON.parse(savedConfigs) : [];
       } catch (parseError) {
-        console.error('Error parsing localStorage configs:', parseError);
+        console.error('💥 Error parsing localStorage configs:', parseError);
         configs = [];
       }
       
@@ -83,258 +124,152 @@ export const useDashboardConfig = (userId: string) => {
     }
   }, [userId]);
 
-  // Save configuration
-  const saveConfiguration = useCallback(async (config: Partial<DashboardConfiguration>) => {
+  // Save configuration to database
+  const saveConfiguration = useCallback(async (config: DashboardConfiguration) => {
     try {
+      console.log('💾 Updating dashboard configuration:', config.id, config);
+
       if (isSupabaseMock) {
-        // Use localStorage fallback
-        const savedConfigs = localStorage.getItem(`dashboardConfigs_${userId}`);
-        const configs = savedConfigs ? JSON.parse(savedConfigs) : [];
-        
-        if (config.id) {
-          // Update existing
-          const index = configs.findIndex((c: any) => c.id === config.id);
-          if (index !== -1) {
-            configs[index] = { ...configs[index], ...config, updatedAt: new Date().toISOString() };
-          }
-        } else {
-          // Create new
-          const newConfig = {
-            ...config,
-            id: `config-${Date.now()}`,
-            userId,
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString()
-          };
-          configs.push(newConfig);
-        }
-        
-        localStorage.setItem(`dashboardConfigs_${userId}`, JSON.stringify(configs));
+        console.log('⚠️ Mock mode: Saving to localStorage only');
+        const configs = configurations.map(c => c.id === config.id ? config : c);
         setConfigurations(configs);
+        setCurrentConfig(config);
+        localStorage.setItem(`dashboardConfigs_${userId}`, JSON.stringify(configs));
         return;
       }
 
-      // Ensure we have a valid user ID
-      if (!userId || userId === 'anonymous') {
-        console.warn('No valid user ID for saving dashboard configuration, using localStorage fallback');
-        // Fallback to localStorage for anonymous users
-        const savedConfigs = localStorage.getItem(`dashboardConfigs_${userId}`);
-        const configs = savedConfigs ? JSON.parse(savedConfigs) : [];
+      // Prepare data for database (map our interface to database schema)
+      const dbData = {
+        name: config.name,
+        is_default: config.isDefault,
+        layout_config: config.layoutConfig,
+        updated_at: new Date().toISOString()
+      };
+
+      console.log('📝 Database payload:', dbData);
+
+      // Try to update existing configuration
+      const { data, error } = await supabase
+        .from('dashboard_configurations')
+        .update(dbData)
+        .eq('id', config.id)
+        .eq('user_id', userId)
+        .select();
+
+      if (error) {
+        console.error('❌ Error updating dashboard configuration:', error);
         
-        if (config.id) {
-          const index = configs.findIndex((c: any) => c.id === config.id);
-          if (index !== -1) {
-            configs[index] = { ...configs[index], ...config, updatedAt: new Date().toISOString() };
-          }
-        } else {
-          const newConfig = {
-            ...config,
-            id: `config-${Date.now()}`,
-            userId,
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString()
+        // If update failed, try to insert as new
+        if (error.code === 'PGRST116') { // No rows returned - doesn't exist
+          console.log('🔄 Configuration not found, creating new one');
+          
+          const insertData = {
+            id: config.id,
+            user_id: userId,
+            ...dbData
           };
-          configs.push(newConfig);
-        }
-        
-        localStorage.setItem(`dashboardConfigs_${userId}`, JSON.stringify(configs));
-        setConfigurations(configs);
-        setCurrentConfig(configs[configs.length - 1]);
-        return;
-      }
 
-      if (config.id) {
-        // Update existing configuration
-        const updateData = {
-          name: config.name,
-          is_default: config.isDefault || false,
-          layout_config: config.layoutConfig,
-          updated_at: new Date().toISOString()
-        };
+          const { data: insertedData, error: insertError } = await supabase
+            .from('dashboard_configurations')
+            .insert([insertData])
+            .select();
 
-        console.log('Updating dashboard configuration:', config.id, updateData);
-
-        const { error } = await supabase
-          .from('dashboard_configurations')
-          .update(updateData)
-          .eq('id', config.id);
-
-        if (error) {
-          console.error('Error updating dashboard configuration:', error);
+          if (insertError) {
+            console.error('❌ Error creating dashboard configuration:', insertError);
+            throw insertError;
+          }
+          
+          console.log('✅ Created new dashboard configuration:', insertedData);
+        } else {
           throw error;
         }
       } else {
-        // Create new configuration
-        const insertData = {
-          user_id: userId,
-          name: config.name || 'New Dashboard',
-          is_default: config.isDefault || false,
-          layout_config: config.layoutConfig || { cards: [], settings: { gridColumns: 4, cardSpacing: 24, theme: 'light' } }
-        };
-
-        console.log('Creating new dashboard configuration:', insertData);
-
-        const { data, error } = await supabase
-          .from('dashboard_configurations')
-          .insert([insertData])
-          .select()
-          .single();
-
-        if (error) {
-          console.error('Error creating dashboard configuration:', error);
-          throw error;
-        }
-
-        if (data) {
-          const newConfig = mapDatabaseToConfig(data);
-          setConfigurations(prev => [...prev, newConfig]);
-          if (config.isDefault) {
-            setCurrentConfig(newConfig);
-          }
-        }
+        console.log('✅ Updated dashboard configuration successfully:', data);
       }
 
-      // Reload configurations after save
-      await loadConfigurations();
+      // Update local state
+      setConfigurations(prev => prev.map(c => c.id === config.id ? config : c));
+      setCurrentConfig(config);
+
     } catch (error) {
-      console.error('Error saving dashboard configuration:', error);
+      console.error('💥 Error saving dashboard configuration:', error);
+      console.log('🔄 Falling back to localStorage due to database error');
       
-      // Fallback to localStorage on error
-      console.warn('Falling back to localStorage due to database error');
-      const savedConfigs = localStorage.getItem(`dashboardConfigs_${userId}`);
-      const configs = savedConfigs ? JSON.parse(savedConfigs) : [];
-      
-      if (config.id) {
-        const index = configs.findIndex((c: any) => c.id === config.id);
-        if (index !== -1) {
-          configs[index] = { ...configs[index], ...config, updatedAt: new Date().toISOString() };
+      // Fallback to localStorage
+      try {
+        const configs = configurations.map(c => c.id === config.id ? config : c);
+        if (!configs.find(c => c.id === config.id)) {
+          configs.push(config);
         }
-      } else {
-        const newConfig = {
-          ...config,
-          id: `config-${Date.now()}`,
-          userId,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString()
-        };
-        configs.push(newConfig);
+        setConfigurations(configs);
+        setCurrentConfig(config);
+        localStorage.setItem(`dashboardConfigs_${userId}`, JSON.stringify(configs));
+        console.log('✅ Saved to localStorage as fallback');
+      } catch (localError) {
+        console.error('💥 Even localStorage fallback failed:', localError);
       }
-      
-      localStorage.setItem(`dashboardConfigs_${userId}`, JSON.stringify(configs));
-      setConfigurations(configs);
-      setCurrentConfig(configs[configs.length - 1]);
     }
-  }, [userId, loadConfigurations]);
+  }, [configurations, userId]);
 
-  // Update card in current configuration
-  const updateCard = useCallback(async (cardId: string, updates: Partial<DashboardCard>) => {
-    if (!currentConfig) return;
-
-    const updatedCards = currentConfig.layoutConfig.cards.map(card =>
-      card.id === cardId ? { ...card, ...updates } : card
-    );
-
-    const updatedConfig = {
-      ...currentConfig,
-      layoutConfig: {
-        ...currentConfig.layoutConfig,
-        cards: updatedCards
-      }
-    };
-
-    setCurrentConfig(updatedConfig);
-    await saveConfiguration(updatedConfig);
-  }, [currentConfig, saveConfiguration]);
-
-  // Add card to current configuration
+  // Add a card to the current configuration
   const addCard = useCallback(async (cardType: string, size: CardSize = 'half') => {
-    console.log(`🔄 useDashboardConfig.addCard called with: ${cardType}, size: ${size}`);
+    console.log('🔄 useDashboardConfig.addCard called with:', cardType, 'size:', size);
     
     let configToUpdate = currentConfig;
     
-    // If no current config exists, create a default one
+    // If no current configuration exists, create a default one
     if (!configToUpdate) {
       console.log('📝 No current config found, creating default configuration');
-      const defaultConfig = createDefaultConfiguration(userId);
-      setCurrentConfig(defaultConfig);
-      configToUpdate = defaultConfig;
+      configToUpdate = createDefaultConfiguration(userId);
     }
 
-    try {
-      const newCard: DashboardCard = {
-        id: `card-${cardType}-${Date.now()}`,
-        type: cardType as any,
-        size,
-        position: { x: 0, y: 0, w: 2, h: 1 }, // Will be auto-positioned
-        config: {
-          title: getCardTitle(cardType),
-          chartType: 'bar',
-          timeRange: '6months',
-          visible: true
-        }
-      };
+    // Create new card
+    const newCard: DashboardCard = {
+      id: `card-${cardType}-${Date.now()}`,
+      type: cardType as any,
+      size,
+      position: { x: 0, y: 0, w: size === 'full' ? 4 : size === 'half' ? 2 : 1, h: 1 },
+      config: {
+        title: cardType.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' '),
+        visible: true
+      }
+    };
 
-      const updatedConfig = {
-        ...configToUpdate,
-        layoutConfig: {
-          ...configToUpdate.layoutConfig,
-          cards: [...(configToUpdate.layoutConfig.cards || []), newCard]
-        }
-      };
+    // Add card to configuration
+    const updatedConfig = {
+      ...configToUpdate,
+      layoutConfig: {
+        ...configToUpdate.layoutConfig,
+        cards: [...(configToUpdate.layoutConfig.cards || []), newCard]
+      },
+      updatedAt: new Date().toISOString()
+    };
 
-      console.log('📊 Adding card to dashboard:', cardType, 'Updated config:', updatedConfig);
-      
-      // Update state immediately for instant UI feedback
-      setCurrentConfig(updatedConfig);
-      
-      // Force a re-render by updating the configurations array
-      setConfigurations(prev => prev.map(config => 
-        config.id === updatedConfig.id ? updatedConfig : config
-      ));
-      
-      // Save to database/localStorage
-      await saveConfiguration(updatedConfig);
-      
-      console.log('✅ Card added successfully:', cardType);
-      
-    } catch (error) {
-      console.error('❌ Error in addCard:', error);
-      throw error; // Re-throw so calling component can handle it
-    }
+    console.log('📊 Adding card to dashboard:', cardType, 'Updated config:', updatedConfig);
+
+    // Save the updated configuration
+    await saveConfiguration(updatedConfig);
+    
+    console.log('✅ Card added successfully:', cardType);
   }, [currentConfig, saveConfiguration, userId]);
 
-  // Remove card from current configuration
+  // Remove a card from the current configuration
   const removeCard = useCallback(async (cardId: string) => {
     if (!currentConfig) return;
-
-    const updatedCards = currentConfig.layoutConfig.cards.filter(card => card.id !== cardId);
 
     const updatedConfig = {
       ...currentConfig,
       layoutConfig: {
         ...currentConfig.layoutConfig,
-        cards: updatedCards
-      }
+        cards: currentConfig.layoutConfig.cards.filter(card => card.id !== cardId)
+      },
+      updatedAt: new Date().toISOString()
     };
 
-    setCurrentConfig(updatedConfig);
     await saveConfiguration(updatedConfig);
   }, [currentConfig, saveConfiguration]);
 
-  // Resize card
-  const resizeCard = useCallback(async (cardId: string, newSize: CardSize) => {
-    await updateCard(cardId, { size: newSize });
-  }, [updateCard]);
-
-  // Switch configuration
-  const switchConfiguration = useCallback(async (configId: string) => {
-    const config = configurations.find(c => c.id === configId);
-    if (config) {
-      setCurrentConfig(config);
-    }
-  }, [configurations]);
-
-  // Load configurations on mount
+  // Load configurations when component mounts or userId changes
   useEffect(() => {
     if (userId) {
       loadConfigurations();
@@ -347,58 +282,9 @@ export const useDashboardConfig = (userId: string) => {
     loading,
     editMode,
     setEditMode,
-    saveConfiguration,
-    updateCard,
     addCard,
     removeCard,
-    resizeCard,
-    switchConfiguration,
+    saveConfiguration,
     loadConfigurations
   };
-};
-
-// Helper functions
-const createDefaultConfiguration = (userId: string): DashboardConfiguration => ({
-  id: `default-${Date.now()}`,
-  userId,
-  name: 'Main Dashboard',
-  isDefault: true,
-  layoutConfig: {
-    cards: DEFAULT_CARDS.map((card, index) => ({
-      ...card,
-      id: `default-card-${index}`,
-      position: { x: index % 4, y: Math.floor(index / 4), w: 2, h: 1 }
-    })) as DashboardCard[],
-    settings: {
-      gridColumns: 4,
-      cardSpacing: 24,
-      theme: 'light'
-    }
-  },
-  createdAt: new Date().toISOString(),
-  updatedAt: new Date().toISOString()
-});
-
-const mapDatabaseToConfig = (data: any): DashboardConfiguration => ({
-  id: data.id,
-  userId: data.user_id,
-  name: data.name,
-  isDefault: data.is_default,
-  layoutConfig: data.layout_config,
-  createdAt: data.created_at,
-  updatedAt: data.updated_at
-});
-
-const getCardTitle = (cardType: string): string => {
-  const titles: Record<string, string> = {
-    'emergency-fund': 'Emergency Fund',
-    'cash-flow': 'Cash Flow Forecast',
-    'health-score': 'Financial Health Score',
-    'subscriptions': 'Subscription Tracker',
-    'asset-allocation': 'Asset Allocation',
-    'goal-timeline': 'Goal Timeline',
-    'bonus-tracker': 'Bonus Tracker',
-    'peer-benchmarking': 'Peer Benchmarking'
-  };
-  return titles[cardType] || 'New Card';
 }; 
