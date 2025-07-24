@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { supabase } from '../lib/supabase';
+import { supabase, isSupabaseMock } from '../lib/supabase';
 import type { User, Session } from '@supabase/supabase-js';
 
 interface UserProfile {
@@ -58,17 +58,32 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Set a maximum loading timeout of 10 seconds
+    // Check if we're in mock mode immediately
+    if (isSupabaseMock) {
+      console.log('Running in Supabase mock mode - no authentication available');
+      setLoading(false);
+      return;
+    }
+
+    // Set a maximum loading timeout of 5 seconds
     const loadingTimeout = setTimeout(() => {
       console.warn('Loading timeout reached, setting loading to false');
       setLoading(false);
-    }, 10000);
+    }, 5000);
+
+    // Set a shorter timeout for initial session loading
+    const initialLoadTimeout = setTimeout(() => {
+      console.warn('Initial session load timeout - ensuring loading resolves');
+      setLoading(false);
+    }, 3000);
 
     // Get initial session
     const getInitialSession = async () => {
       try {
         console.log('Getting initial session...');
         const { data: { session }, error } = await supabase.auth.getSession();
+        
+        clearTimeout(initialLoadTimeout);
         
         if (error) {
           console.error('Error getting session:', error);
@@ -86,6 +101,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       } finally {
         setLoading(false);
         clearTimeout(loadingTimeout);
+        clearTimeout(initialLoadTimeout);
       }
     };
 
@@ -111,6 +127,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     return () => {
       subscription.unsubscribe();
       clearTimeout(loadingTimeout);
+      clearTimeout(initialLoadTimeout);
     };
   }, []);
 
