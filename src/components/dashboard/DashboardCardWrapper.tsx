@@ -102,8 +102,10 @@ const DashboardCardWrapper: React.FC<DashboardCardWrapperProps> = ({
 
   const handleTimeRangeChange = (newTimeRange: string) => {
     onConfigure(card.id, {
-      ...card.config,
-      timeRange: newTimeRange
+      config: {
+        ...card.config,
+        timeRange: newTimeRange
+      }
     });
     setShowMenu(false);
   };

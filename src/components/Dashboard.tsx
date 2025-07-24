@@ -35,7 +35,8 @@ const Dashboard: React.FC = () => {
     addCard: addCardToConfig,
     removeCard: removeCardFromConfig,
     updateCard: updateCardInConfig,
-    resizeCard: resizeCardInConfig
+    resizeCard: resizeCardInConfig,
+    addMultipleCards: addMultipleCardsToConfig
   } = useDashboardConfig(user?.id || 'anonymous');
   
   const [showAddCardModal, setShowAddCardModal] = useState(false);
@@ -83,38 +84,33 @@ const Dashboard: React.FC = () => {
       console.log('🔄 Adding selected cards to dashboard:', Array.from(selectedCards));
       console.log('📊 Current config before adding:', currentConfig);
       
-      let addedCount = 0;
-      
-      // Add each selected card to the database
-      for (const cardType of selectedCards) {
-        try {
-          const definition = getCardDefinition(cardType);
-          if (definition) {
-            console.log(`➕ Adding card: ${cardType} with size: ${definition.defaultSize}`);
-            await addCardToConfig(cardType, definition.defaultSize);
-            addedCount++;
-            console.log(`✅ Successfully added card: ${cardType}`);
-          } else {
-            console.warn(`⚠️ No definition found for card type: ${cardType}`);
-          }
-        } catch (cardError) {
-          console.error(`❌ Error adding individual card ${cardType}:`, cardError);
+      // Prepare cards for batch addition
+      const cardsToAdd = Array.from(selectedCards).map(cardType => {
+        const definition = getCardDefinition(cardType);
+        if (!definition) {
+          console.warn(`⚠️ No definition found for card type: ${cardType}`);
+          return null;
         }
+        return {
+          type: cardType,
+          size: definition.defaultSize
+        };
+      }).filter(card => card !== null) as Array<{ type: string; size: CardSize }>;
+
+      if (cardsToAdd.length === 0) {
+        throw new Error('No valid cards selected');
       }
+
+      console.log(`➕ Adding ${cardsToAdd.length} cards in batch:`, cardsToAdd);
+      
+      // Add all cards at once using the new batch function
+      await addMultipleCardsToConfig(cardsToAdd);
 
       // Clear selection and close modal
       setSelectedCards(new Set());
       setShowAddCardModal(false);
       
-      if (addedCount > 0) {
-        console.log(`🎉 Successfully added ${addedCount} card(s) to dashboard`);
-        // Force a small delay to ensure state updates
-        setTimeout(() => {
-          console.log('📊 Current config after adding:', currentConfig);
-        }, 100);
-      } else {
-        throw new Error('No cards were successfully added');
-      }
+      console.log(`🎉 Successfully added ${cardsToAdd.length} card(s) to dashboard`);
 
     } catch (error) {
       console.error('💥 Error adding cards to dashboard:', error);

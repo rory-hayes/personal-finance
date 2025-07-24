@@ -269,6 +269,84 @@ export const useDashboardConfig = (userId: string) => {
     await saveConfiguration(updatedConfig);
   }, [currentConfig, saveConfiguration]);
 
+  // Update a card in the current configuration
+  const updateCard = useCallback(async (cardId: string, updates: Partial<DashboardCard>) => {
+    if (!currentConfig) return;
+
+    const updatedConfig = {
+      ...currentConfig,
+      layoutConfig: {
+        ...currentConfig.layoutConfig,
+        cards: currentConfig.layoutConfig.cards.map(card => 
+          card.id === cardId ? { ...card, ...updates } : card
+        )
+      },
+      updatedAt: new Date().toISOString()
+    };
+
+    await saveConfiguration(updatedConfig);
+  }, [currentConfig, saveConfiguration]);
+
+  // Resize a card in the current configuration
+  const resizeCard = useCallback(async (cardId: string, newSize: CardSize) => {
+    if (!currentConfig) return;
+
+    const updatedConfig = {
+      ...currentConfig,
+      layoutConfig: {
+        ...currentConfig.layoutConfig,
+        cards: currentConfig.layoutConfig.cards.map(card => 
+          card.id === cardId ? { ...card, size: newSize } : card
+        )
+      },
+      updatedAt: new Date().toISOString()
+    };
+
+    await saveConfiguration(updatedConfig);
+  }, [currentConfig, saveConfiguration]);
+
+  // Add multiple cards to the current configuration (for batch operations)
+  const addMultipleCards = useCallback(async (cardTypes: Array<{ type: string; size: CardSize }>) => {
+    console.log('🔄 useDashboardConfig.addMultipleCards called with:', cardTypes);
+    
+    let configToUpdate = currentConfig;
+    
+    // If no current configuration exists, create a default one
+    if (!configToUpdate) {
+      console.log('📝 No current config found, creating default configuration');
+      configToUpdate = createDefaultConfiguration(userId);
+    }
+
+    // Create all new cards
+    const newCards: DashboardCard[] = cardTypes.map(({ type, size }, index) => ({
+      id: `card-${type}-${Date.now()}-${index}`,
+      type: type as any,
+      size,
+      position: { x: 0, y: 0, w: size === 'full' ? 4 : size === 'half' ? 2 : 1, h: 1 },
+      config: {
+        title: type.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' '),
+        visible: true
+      }
+    }));
+
+    // Add all cards to configuration at once
+    const updatedConfig = {
+      ...configToUpdate,
+      layoutConfig: {
+        ...configToUpdate.layoutConfig,
+        cards: [...(configToUpdate.layoutConfig.cards || []), ...newCards]
+      },
+      updatedAt: new Date().toISOString()
+    };
+
+    console.log('📊 Adding multiple cards to dashboard:', cardTypes, 'Updated config:', updatedConfig);
+
+    // Save the updated configuration
+    await saveConfiguration(updatedConfig);
+    
+    console.log('✅ Multiple cards added successfully:', cardTypes.length);
+  }, [currentConfig, saveConfiguration, userId]);
+
   // Load configurations when component mounts or userId changes
   useEffect(() => {
     if (userId) {
@@ -284,6 +362,9 @@ export const useDashboardConfig = (userId: string) => {
     setEditMode,
     addCard,
     removeCard,
+    updateCard,
+    resizeCard,
+    addMultipleCards,
     saveConfiguration,
     loadConfigurations
   };
