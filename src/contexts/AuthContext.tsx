@@ -134,6 +134,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const loadUserProfile = async (userId: string, currentUser?: User) => {
     try {
       console.log('🔍 Loading user profile for:', userId);
+      console.log('🔍 Supabase URL:', import.meta.env.VITE_SUPABASE_URL ? 'SET' : 'NOT SET');
+      console.log('🔍 Supabase Key:', import.meta.env.VITE_SUPABASE_ANON_KEY ? 'SET (first 20 chars): ' + import.meta.env.VITE_SUPABASE_ANON_KEY?.substring(0, 20) : 'NOT SET');
       
       // Check localStorage backup first for faster loading
       const backupProfile = localStorage.getItem(`userProfile_${userId}`);
@@ -144,17 +146,30 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           const parsedProfile = JSON.parse(backupProfile);
           console.log('📦 Found profile backup in localStorage:', parsedProfile);
           setProfile(parsedProfile);
+          
+          // Return early if backup shows onboarding completed
+          if (parsedProfile.onboarding_completed) {
+            console.log('✅ Using localStorage backup - onboarding marked complete');
+            return;
+          }
         } catch (parseError) {
           console.error('⚠️ Error parsing localStorage profile:', parseError);
         }
       }
       
-      // Try to load from database
-      const { data, error } = await supabase
+      // Try to load from database with timeout
+      console.log('🔍 Attempting database connection...');
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('Database connection timeout')), 10000); // 10 second timeout
+      });
+      
+      const dbPromise = supabase
         .from('user_profiles')
         .select('*')
         .eq('id', userId)
         .single();
+        
+      const { data, error } = await Promise.race([dbPromise, timeoutPromise]) as any;
 
       if (error) {
         console.error('❌ Error loading user profile from database:', error);
@@ -171,40 +186,43 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           const userToUse = currentUser || user;
           
           try {
-            const { data: newProfile, error: createError } = await supabase
+            const newProfileData = {
+              id: userId,
+              email: userToUse?.email || '',
+              full_name: userToUse?.user_metadata?.full_name || userToUse?.email || 'User',
+              household_size: 1,
+              monthly_income: 0,
+              currency: 'EUR',
+              timezone: 'UTC',
+              onboarding_completed: false,
+            };
+            
+            console.log('📝 Creating new profile:', newProfileData);
+            
+            const createTimeoutPromise = new Promise((_, reject) => {
+              setTimeout(() => reject(new Error('Profile creation timeout')), 10000);
+            });
+            
+            const createPromise = supabase
               .from('user_profiles')
-              .insert({
-                id: userId,
-                email: userToUse?.email || '',
-                full_name: userToUse?.user_metadata?.full_name || userToUse?.email || 'User',
-                household_size: 1,
-                monthly_income: 0,
-                currency: 'EUR',
-                timezone: 'UTC',
-                onboarding_completed: false,
-              })
+              .insert(newProfileData)
               .select()
               .single();
+              
+            const { data: newProfile, error: createError } = await Promise.race([createPromise, createTimeoutPromise]) as any;
 
             if (createError) {
               console.error('❌ Error creating user profile:', createError);
               
               // Fall back to localStorage if available
               if (backupProfile) {
-                console.log('📦 Using localStorage backup profile');
+                console.log('📦 Using localStorage backup after creation failure');
                 return;
               }
               
               // Create a minimal profile in memory
               const minimalProfile = {
-                id: userId,
-                email: userToUse?.email || '',
-                full_name: userToUse?.user_metadata?.full_name || userToUse?.email || 'User',
-                household_size: 1,
-                monthly_income: 0,
-                currency: 'EUR',
-                timezone: 'UTC',
-                onboarding_completed: false,
+                ...newProfileData,
                 created_at: new Date().toISOString(),
                 updated_at: new Date().toISOString()
               };
@@ -229,6 +247,29 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
               console.log('📦 Using localStorage backup after creation failure');
               return;
             }
+            
+            // Create emergency profile
+            const emergencyProfile = {
+              id: userId,
+              email: currentUser?.email || user?.email || '',
+              full_name: currentUser?.user_metadata?.full_name || user?.user_metadata?.full_name || 'User',
+              household_size: 1,
+              monthly_income: 0,
+              currency: 'EUR',
+              timezone: 'UTC',
+              onboarding_completed: false,
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString()
+            };
+            
+            setProfile(emergencyProfile);
+            console.log('🚨 Created emergency profile:', emergencyProfile);
+          }
+        } else if (error.message?.includes('timeout') || error.message?.includes('connection')) {
+          console.log('🔄 Database connection timeout - using localStorage if available');
+          if (backupProfile) {
+            console.log('📦 Using localStorage backup due to connection timeout');
+            return;
           }
         } else {
           // Other database errors - use localStorage backup if available
@@ -250,8 +291,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           localStorage.setItem(`onboardingCompleted_${userId}`, 'true');
         }
       }
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('💥 Exception in loadUserProfile:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      
+      if (errorMessage.includes('timeout') || errorMessage.includes('connection')) {
+        console.log('🔄 Connection timeout detected');
+      }
       
       // Try localStorage backup as last resort
       const backupProfile = localStorage.getItem(`userProfile_${userId}`);

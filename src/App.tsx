@@ -60,7 +60,7 @@ const AppContent: React.FC = () => {
   // Show landing page or auth page if user is not logged in
   if (!user) {
     if (showAuth) {
-      return <AuthPage />;
+      return <AuthPage onBackToLanding={() => setShowAuth(false)} />;
     }
     return <LandingPage onGetStarted={() => setShowAuth(true)} />;
   }

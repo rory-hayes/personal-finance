@@ -112,9 +112,9 @@ const OnboardingFlow: React.FC = () => {
         supabaseAnonKey: import.meta.env.VITE_SUPABASE_ANON_KEY ? 'SET' : 'NOT SET'
       });
       
-      // Set a timeout to prevent infinite loading
+      // Set a shorter timeout to prevent infinite loading
       const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error('Onboarding timeout - please try again')), 30000); // 30 second timeout
+        setTimeout(() => reject(new Error('Onboarding timeout - please try again')), 15000); // 15 second timeout
       });
       
       const monthlyIncome = parseFloat(formData.monthly_income) || 0;
@@ -131,7 +131,13 @@ const OnboardingFlow: React.FC = () => {
 
       if (result && result.error) {
         console.error('❌ Error completing onboarding:', result.error);
-        alert(`Setup failed: ${result.error.message || 'Please try again'}\n\nDEBUG INFO:\n- Supabase Mock Mode: ${isSupabaseMock}\n- Check browser console for more details`);
+        
+        // Check if it's a database connectivity issue
+        if (result.error.message?.includes('connection') || result.error.message?.includes('timeout') || result.error.message?.includes('fetch')) {
+          alert(`Database Connection Issue:\n\n${result.error.message || 'Database connection failed'}\n\nPossible causes:\n1. Incorrect Supabase URL\n2. Invalid API key\n3. Network connectivity issues\n4. Database schema not set up\n\nPlease check your Supabase configuration.`);
+        } else {
+          alert(`Setup failed: ${result.error.message || 'Please try again'}\n\nDEBUG INFO:\n- Supabase Mock Mode: ${isSupabaseMock}\n- Check browser console for more details`);
+        }
       } else {
         console.log('✅ Onboarding completed successfully');
         alert('Setup completed successfully! Redirecting to dashboard...');
