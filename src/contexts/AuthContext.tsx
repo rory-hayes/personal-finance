@@ -58,22 +58,35 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // Set a maximum loading timeout of 10 seconds
+    const loadingTimeout = setTimeout(() => {
+      console.warn('Loading timeout reached, setting loading to false');
+      setLoading(false);
+    }, 10000);
+
     // Get initial session
     const getInitialSession = async () => {
-      const { data: { session }, error } = await supabase.auth.getSession();
-      
-      if (error) {
-        console.error('Error getting session:', error);
-      } else {
-        setSession(session);
-        setUser(session?.user ?? null);
+      try {
+        console.log('Getting initial session...');
+        const { data: { session }, error } = await supabase.auth.getSession();
         
-        if (session?.user) {
-          await loadUserProfile(session.user.id);
+        if (error) {
+          console.error('Error getting session:', error);
+        } else {
+          console.log('Initial session:', session);
+          setSession(session);
+          setUser(session?.user ?? null);
+          
+          if (session?.user) {
+            await loadUserProfile(session.user.id, session.user);
+          }
         }
+      } catch (error) {
+        console.error('Error in getInitialSession:', error);
+      } finally {
+        setLoading(false);
+        clearTimeout(loadingTimeout);
       }
-      
-      setLoading(false);
     };
 
     getInitialSession();
@@ -81,11 +94,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event: string, session: Session | null) => {
+        console.log('Auth state change:', event, session);
         setSession(session);
         setUser(session?.user ?? null);
         
         if (session?.user) {
-          await loadUserProfile(session.user.id);
+          await loadUserProfile(session.user.id, session.user);
         } else {
           setProfile(null);
         }
@@ -94,11 +108,16 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       }
     );
 
-    return () => subscription.unsubscribe();
+    return () => {
+      subscription.unsubscribe();
+      clearTimeout(loadingTimeout);
+    };
   }, []);
 
-  const loadUserProfile = async (userId: string) => {
+  const loadUserProfile = async (userId: string, currentUser?: User) => {
     try {
+      console.log('Loading user profile for:', userId);
+      
       const { data, error } = await supabase
         .from('user_profiles')
         .select('*')
@@ -107,11 +126,42 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
       if (error) {
         console.error('Error loading user profile:', error);
+        
+        // If user profile doesn't exist, create a default one
+        if (error.code === 'PGRST116') { // No rows returned
+          console.log('No user profile found, creating default profile...');
+          const userToUse = currentUser || user;
+          const { data: newProfile, error: createError } = await supabase
+            .from('user_profiles')
+            .insert({
+              id: userId,
+              email: userToUse?.email || '',
+              full_name: userToUse?.user_metadata?.full_name || userToUse?.email || 'User',
+              household_size: 1,
+              monthly_income: 0,
+              currency: 'EUR',
+              timezone: 'UTC',
+              onboarding_completed: false,
+            })
+            .select()
+            .single();
+
+          if (createError) {
+            console.error('Error creating user profile:', createError);
+            return;
+          }
+
+          if (newProfile) {
+            setProfile(newProfile);
+            console.log('Created new user profile:', newProfile);
+          }
+        }
         return;
       }
 
       if (data) {
         setProfile(data);
+        console.log('Loaded user profile:', data);
       }
     } catch (error) {
       console.error('Error loading user profile:', error);
