@@ -245,10 +245,10 @@ const OnboardingFlow: React.FC = () => {
         supabaseAnonKey: import.meta.env.VITE_SUPABASE_ANON_KEY ? 'SET' : 'NOT SET'
       });
       
-      // Set a shorter timeout to prevent infinite loading
-      const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error('Onboarding timeout - please try again')), 15000); // 15 second timeout
-      });
+       // Increase timeout to 30 seconds to prevent premature timeouts on slow connections.
+       const timeoutPromise = new Promise((_, reject) => {
+         setTimeout(() => reject(new Error('Onboarding timeout - please try again')), 30000);
+       });
       
       const monthlyIncome = parseFloat(formData.monthly_income) || 0;
       

@@ -533,6 +533,9 @@ const Expenses: React.FC = () => {
                     return false;
                   }
                 }
+
+                // Nothing excluded this transaction, include it
+                return true;
               })
               .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
               .map((transaction) => (

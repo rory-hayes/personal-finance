@@ -317,9 +317,22 @@ export const useDashboardConfig = (userId: string) => {
 
     console.log('📊 Adding card to dashboard:', cardType, 'Updated config:', updatedConfig);
 
-    // Save the updated configuration
+    // Update local state immediately so the UI reflects the change before
+    // persisting to the database. Without this, the added card does not
+    // appear until a reload.
+    setCurrentConfig(updatedConfig);
+    setConfigurations(prev => {
+      const idx = prev.findIndex(cfg => cfg.id === updatedConfig.id);
+      if (idx !== -1) {
+        const arr = [...prev];
+        arr[idx] = updatedConfig;
+        return arr;
+      }
+      return [...prev, updatedConfig];
+    });
+    // Persist to the database
     await saveConfiguration(updatedConfig);
-    
+
     console.log('✅ Card added successfully:', cardType);
   }, [currentConfig, saveConfiguration, userId]);
 
@@ -336,6 +349,18 @@ export const useDashboardConfig = (userId: string) => {
       updatedAt: new Date().toISOString()
     };
 
+    // Immediately update local state to remove the card
+    setCurrentConfig(updatedConfig);
+    setConfigurations(prev => {
+      const idx = prev.findIndex(cfg => cfg.id === updatedConfig.id);
+      if (idx !== -1) {
+        const arr = [...prev];
+        arr[idx] = updatedConfig;
+        return arr;
+      }
+      return [...prev, updatedConfig];
+    });
+
     await saveConfiguration(updatedConfig);
   }, [currentConfig, saveConfiguration]);
 
@@ -347,12 +372,24 @@ export const useDashboardConfig = (userId: string) => {
       ...currentConfig,
       layoutConfig: {
         ...currentConfig.layoutConfig,
-        cards: currentConfig.layoutConfig.cards.map(card => 
+        cards: currentConfig.layoutConfig.cards.map(card =>
           card.id === cardId ? { ...card, ...updates } : card
         )
       },
       updatedAt: new Date().toISOString()
     };
+
+    // Update local state so changes are reflected immediately
+    setCurrentConfig(updatedConfig);
+    setConfigurations(prev => {
+      const idx = prev.findIndex(cfg => cfg.id === updatedConfig.id);
+      if (idx !== -1) {
+        const arr = [...prev];
+        arr[idx] = updatedConfig;
+        return arr;
+      }
+      return [...prev, updatedConfig];
+    });
 
     await saveConfiguration(updatedConfig);
   }, [currentConfig, saveConfiguration]);
@@ -365,12 +402,24 @@ export const useDashboardConfig = (userId: string) => {
       ...currentConfig,
       layoutConfig: {
         ...currentConfig.layoutConfig,
-        cards: currentConfig.layoutConfig.cards.map(card => 
+        cards: currentConfig.layoutConfig.cards.map(card =>
           card.id === cardId ? { ...card, size: newSize } : card
         )
       },
       updatedAt: new Date().toISOString()
     };
+
+    // Update local state so resize is visible immediately
+    setCurrentConfig(updatedConfig);
+    setConfigurations(prev => {
+      const idx = prev.findIndex(cfg => cfg.id === updatedConfig.id);
+      if (idx !== -1) {
+        const arr = [...prev];
+        arr[idx] = updatedConfig;
+        return arr;
+      }
+      return [...prev, updatedConfig];
+    });
 
     await saveConfiguration(updatedConfig);
   }, [currentConfig, saveConfiguration]);
@@ -411,7 +460,17 @@ export const useDashboardConfig = (userId: string) => {
 
     console.log('📊 Adding multiple cards to dashboard:', cardTypes, 'Updated config:', updatedConfig);
 
-    // Save the updated configuration
+    // Update local state so all cards appear immediately
+    setCurrentConfig(updatedConfig);
+    setConfigurations(prev => {
+      const idx = prev.findIndex(cfg => cfg.id === updatedConfig.id);
+      if (idx !== -1) {
+        const arr = [...prev];
+        arr[idx] = updatedConfig;
+        return arr;
+      }
+      return [...prev, updatedConfig];
+    });
     await saveConfiguration(updatedConfig);
     
     console.log('✅ Multiple cards added successfully:', cardTypes.length);
