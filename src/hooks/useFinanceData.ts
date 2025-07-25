@@ -814,14 +814,22 @@ export const useFinanceData = () => {
   }, [user]);
 
   const allocateToAccount = useCallback(
-    async (accountId: string, amount: number, description?: string) => {
+    async (
+      accountId: string,
+      amount: number,
+      description?: string,
+      lumpSum?: number,
+    ) => {
       if (!user) return;
 
       try {
         // look up the current balance from local state
         const target = accounts.find((acc) => acc.id === accountId);
         const currentBalance = target ? target.balance : 0;
-        const newBalance = currentBalance + amount;
+
+        // Include optional lump sum if provided
+        const totalAmount = lumpSum ? amount + lumpSum : amount;
+        const newBalance = currentBalance + totalAmount;
 
         // Persist the updated balance to Supabase.  Because Supabase does not
         // support arithmetic expressions via the `.update()` helper, compute
