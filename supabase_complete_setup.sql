@@ -1,8 +1,8 @@
 /*
-  # Comprehensive Budgeter Application Database Setup
+  # Comprehensive Nudge Application Database Setup
   
   This script creates all necessary tables, indexes, RLS policies, and triggers
-  for the budgeter personal finance application.
+  for the Nudge personal finance application.
   
   Run this script in your new Supabase SQL editor to set up the complete database.
 */

@@ -1,4 +1,4 @@
-# 🚀 **BudgetTracker Setup Guide**
+# 🚀 **Nudge Setup Guide**
 
 ## **🚨 Critical Issue: Database Not Connected**
 
@@ -25,7 +25,7 @@ If you just want to test the dashboard immediately:
 3. Click "New Project"
 4. Choose your organization
 5. Fill in:
-   - **Name**: `BudgetTracker` (or your preferred name)
+   - **Name**: `Nudge` (or your preferred name)
    - **Database Password**: Create a strong password
    - **Region**: Choose closest to your users
 6. Click "Create new project"
@@ -264,4 +264,4 @@ ALTER TABLE accounts DISABLE ROW LEVEL SECURITY;
 - [ ] Dashboard loads with default cards
 - [ ] Can add/edit accounts, assets, goals
 
-**Your BudgetTracker is now fully functional! 🚀** 
+**Your Nudge is now fully functional! 🚀**

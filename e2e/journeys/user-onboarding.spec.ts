@@ -27,7 +27,7 @@ test.describe('User Onboarding Journey', () => {
     await expect(page.locator('[data-testid="success-message"]')).toBeVisible()
 
     // Step 3: Onboarding Flow - Welcome
-    await expect(page.locator('h2')).toContainText('Welcome to BudgetTracker, John Doe!')
+    await expect(page.locator('h2')).toContainText('Welcome to Nudge, John Doe!')
     
     const continueButton = page.locator('button:has-text("Get Started")')
     await continueButton.click()

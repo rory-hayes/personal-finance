@@ -1,4 +1,4 @@
-# 🔧 BudgetTracker Setup Guide
+# 🔧 Nudge Setup Guide
 
 ## 🔐 Supabase Configuration
 

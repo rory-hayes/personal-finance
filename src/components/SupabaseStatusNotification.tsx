@@ -31,7 +31,7 @@ const SupabaseStatusNotification: React.FC = () => {
               </h3>
               <div className="mt-1 text-sm text-amber-700">
                 <p className="mb-2">
-                  You're currently using BudgetTracker in demo mode. Your data won't be saved permanently.
+                  You're currently using Nudge in demo mode. Your data won't be saved permanently.
                 </p>
                 <div className="space-y-1">
                   <p className="font-medium">To enable full functionality:</p>
