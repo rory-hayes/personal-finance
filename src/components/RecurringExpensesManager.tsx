@@ -23,7 +23,28 @@ const RecurringExpensesManager: React.FC = () => {
     category: '',
     frequency: 'monthly',
     nextDue: '',
+    active: true,
   });
+
+  const totalMonthly = recurringExpenses.reduce((sum, exp) => {
+    const amount = typeof exp.amount === 'number' ? exp.amount : parseFloat(exp.amount);
+    if (isNaN(amount)) return sum;
+    let multiplier = 1;
+    switch (exp.frequency) {
+      case 'weekly':
+        multiplier = 4;
+        break;
+      case 'yearly':
+        multiplier = 1 / 12;
+        break;
+      case 'quarterly':
+        multiplier = 1 / 3;
+        break;
+      default:
+        multiplier = 1;
+    }
+    return sum + amount * multiplier;
+  }, 0);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -39,6 +60,7 @@ const RecurringExpensesManager: React.FC = () => {
       category: formData.category || 'Other',
       frequency: formData.frequency,
       nextDue: formData.nextDue || new Date().toISOString().substring(0, 10),
+      active: formData.active,
     };
     try {
       if (editingId) {
@@ -47,7 +69,7 @@ const RecurringExpensesManager: React.FC = () => {
         await addRecurringExpense(payload);
       }
       setEditingId(null);
-      setFormData({ description: '', amount: '', category: '', frequency: 'monthly', nextDue: '' });
+      setFormData({ description: '', amount: '', category: '', frequency: 'monthly', nextDue: '', active: true });
       setShowForm(false);
     } catch (error) {
       console.error('Error saving recurring expense:', error);
@@ -64,6 +86,7 @@ const RecurringExpensesManager: React.FC = () => {
       category: exp.category,
       frequency: exp.frequency,
       nextDue: exp.nextDue,
+      active: exp.active !== false,
     });
     setShowForm(true);
   };
@@ -76,12 +99,15 @@ const RecurringExpensesManager: React.FC = () => {
 
   return (
     <div className="p-6 max-w-3xl mx-auto">
-      <h2 className="text-xl font-semibold mb-4">Recurring Expenses</h2>
+      <h2 className="text-xl font-semibold mb-2">Recurring Expenses</h2>
+      <p className="text-sm text-gray-600 mb-4">
+        Estimated Monthly Total: €{totalMonthly.toFixed(2)}
+      </p>
       <button
         type="button"
         onClick={() => {
           setEditingId(null);
-          setFormData({ description: '', amount: '', category: '', frequency: 'monthly', nextDue: '' });
+          setFormData({ description: '', amount: '', category: '', frequency: 'monthly', nextDue: '', active: true });
           setShowForm(true);
         }}
         className="mb-4 flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
@@ -147,6 +173,15 @@ const RecurringExpensesManager: React.FC = () => {
               className="mt-1 block w-full border border-gray-300 rounded-md p-2"
             />
           </div>
+          <div className="flex items-center gap-2">
+            <input
+              id="rec-active"
+              type="checkbox"
+              checked={formData.active}
+              onChange={(e) => setFormData({ ...formData, active: e.target.checked })}
+            />
+            <label htmlFor="rec-active" className="text-sm text-gray-700">Active</label>
+          </div>
           <div className="flex gap-2">
             <button
               type="submit"
@@ -169,10 +204,16 @@ const RecurringExpensesManager: React.FC = () => {
       )}
       <ul className="space-y-2">
         {recurringExpenses.map((exp) => (
-          <li key={exp.id} className="flex items-center justify-between p-2 border border-gray-200 rounded">
+          <li
+            key={exp.id}
+            className="flex items-center justify-between p-2 border border-gray-200 rounded"
+          >
             <div>
               <div className="font-medium">{exp.description}</div>
-              <div className="text-sm text-gray-600">€{exp.amount.toLocaleString()} – {exp.frequency} – Next: {exp.nextDue}</div>
+              <div className="text-sm text-gray-600">
+                €{Number(exp.amount).toLocaleString()} • {exp.category} • {exp.frequency}
+                {' '}- Next: {exp.nextDue} {exp.active === false && '(Inactive)'}
+              </div>
             </div>
             <div className="flex gap-2">
               <button
