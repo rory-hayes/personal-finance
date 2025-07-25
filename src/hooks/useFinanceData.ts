@@ -411,6 +411,55 @@ export const useFinanceData = () => {
     }
   }, [user]);
 
+  const updateUser = useCallback(async (userId: string, updates: { name?: string; monthlyIncome?: number }) => {
+    if (!user) return;
+    try {
+      const { error } = await supabase
+        .from('users')
+        .update({
+          ...(updates.name !== undefined ? { name: updates.name } : {}),
+          ...(updates.monthlyIncome !== undefined ? { monthly_income: updates.monthlyIncome } : {})
+        })
+        .eq('id', userId);
+      if (error) throw error;
+      setUsers(prev => prev.map(u =>
+        u.id === userId ? { ...u, name: updates.name ?? u.name, monthlyIncome: updates.monthlyIncome ?? u.monthlyIncome } : u
+      ));
+    } catch (err) {
+      console.error('Error updating user:', err);
+      throw err;
+    }
+  }, [user]);
+
+  const deleteUser = useCallback(async (userId: string, transferTo?: string) => {
+    if (!user) return;
+    try {
+      if (transferTo) {
+        await supabase.from('accounts').update({ user_id: transferTo }).eq('user_id', userId);
+        setAccounts(prev => prev.map(a => a.userId === userId ? { ...a, userId: transferTo } : a));
+      } else {
+        await supabase.from('accounts').delete().eq('user_id', userId);
+        setAccounts(prev => prev.filter(a => a.userId !== userId));
+      }
+
+      const userBudgets = budgets.filter(b => b.userId === userId);
+      if (userBudgets.length) {
+        const ids = userBudgets.map(b => b.id);
+        await supabase.from('budget_categories').delete().in('budget_id', ids);
+        await supabase.from('budgets').delete().eq('user_id', userId);
+        setBudgets(prev => prev.filter(b => b.userId !== userId));
+        setBudgetCategories(prev => prev.filter(c => !ids.includes(c.budgetId)));
+      }
+
+      await supabase.from('users').delete().eq('id', userId);
+      setUsers(prev => prev.filter(u => u.id !== userId));
+      await updateMonthlySummary();
+    } catch (err) {
+      console.error('Error deleting user:', err);
+      throw err;
+    }
+  }, [user, accounts, budgets, budgetCategories, updateMonthlySummary]);
+
   const addTransaction = useCallback(async (transaction: Omit<Transaction, 'id'>) => {
     if (!user) return;
 
@@ -1301,6 +1350,7 @@ export const useFinanceData = () => {
     updateTransaction,
     deleteTransaction,
     addUser,
+    updateUser,
     updateUserIncome,
     addAsset,
     updateAsset,
@@ -1311,6 +1361,8 @@ export const useFinanceData = () => {
     addAccount,
     updateAccount,
     deleteAccount,
+    updateUser,
+    deleteUser,
     allocateToAccount,
     addVestingSchedule,
     deleteVestingSchedule,
