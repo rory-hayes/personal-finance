@@ -1291,5 +1291,6 @@ export const useFinanceData = () => {
     monthlySavings,
     savingsRate,
     insights,
+    initializeData,
   };
 };

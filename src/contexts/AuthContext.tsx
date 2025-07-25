@@ -518,7 +518,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           const colors = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#06B6D4'];
           
           const accountsToInsert = data.accounts
-            .filter(account => account.name.trim() && account.balance.trim())
+            .filter(account => account.name.trim())
             .map((account, index) => ({
               user_id: user.id,
               name: account.name.trim(),
@@ -533,7 +533,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           if (accountsToInsert.length > 0) {
             const { data: accountsResult, error: accountsError } = await supabase
               .from('accounts')
-              .insert(accountsToInsert)
+              .upsert(accountsToInsert, {
+                onConflict: 'user_id,name'
+              })
               .select();
 
             if (accountsError) {
