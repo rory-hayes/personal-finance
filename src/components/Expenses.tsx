@@ -1,9 +1,21 @@
-import React, { useState, useCallback } from 'react';
-import { Upload as UploadIcon, FileText, AlertCircle, CheckCircle, X, Plus, Calendar, DollarSign, Receipt, History, Edit3, Trash2, Filter, Search, HelpCircle, Info } from 'lucide-react';
+import React, { useState, useCallback, useEffect } from 'react';
+import { Upload as UploadIcon, FileText, AlertCircle, CheckCircle, X, Plus, Calendar, DollarSign, Receipt, History, Edit3, Trash2, Filter, Search, HelpCircle, Info, Repeat } from 'lucide-react';
 import { useFinanceData } from '../hooks/useFinanceData';
 import { parseCSV, parsePDF } from '../utils/fileParser';
 import TransactionReviewTable from './TransactionReviewTable';
 import { Transaction } from '../types';
+import { showToast } from '../utils/toast';
+import { getTodayDateString, getDateRange, isDateInRange, getRelativeDateString } from '../utils/dateUtils';
+import { 
+  RecurringTransaction, 
+  loadRecurringTransactions, 
+  saveRecurringTransactions, 
+  processDueRecurringTransactions,
+  setupRecurringTransactionProcessor,
+  validateRecurringTransaction,
+  getFrequencyDescription,
+  getNextDueDate
+} from '../utils/recurringTransactions';
 
 const Expenses: React.FC = () => {
   const [dragActive, setDragActive] = useState(false);
@@ -16,19 +28,31 @@ const Expenses: React.FC = () => {
   const [showManualForm, setShowManualForm] = useState(false);
   const [showRecurringForm, setShowRecurringForm] = useState(false);
   const [showReviewModal, setShowReviewModal] = useState(false);
-  const [pendingTransactions, setPendingTransactions] = useState<Transaction[]>([]);
+  const [pendingTransactions, setPendingTransactions] = useState<(Transaction & { rejected?: boolean })[]>([]);
   const [manualExpense, setManualExpense] = useState({
     description: '',
     amount: '',
     category: 'Other',
-    date: new Date().toISOString().split('T')[0],
+    date: getTodayDateString(),
   });
   const [recurringExpense, setRecurringExpense] = useState({
     description: '',
     amount: '',
     category: 'Bills',
     frequency: 'monthly',
+    startDate: getTodayDateString(),
+    endDate: '',
   });
+
+  // Recurring transactions state
+  const [recurringTransactions, setRecurringTransactions] = useState<RecurringTransaction[]>([]);
+  const [showRecurringManagement, setShowRecurringManagement] = useState(false);
+
+  // Load recurring transactions on component mount
+  useEffect(() => {
+    const loaded = loadRecurringTransactions();
+    setRecurringTransactions(loaded);
+  }, []);
 
   // Expense management state
   const [showExpenseHistory, setShowExpenseHistory] = useState(false);
@@ -39,7 +63,40 @@ const Expenses: React.FC = () => {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [expenseToDelete, setExpenseToDelete] = useState<Transaction | null>(null);
   
-  const { addTransaction, transactions, users } = useFinanceData();
+  const { addTransaction, updateTransaction, deleteTransaction, transactions, users } = useFinanceData();
+
+  // Set up recurring transaction processor
+  useEffect(() => {
+    const processRecurring = async () => {
+      const { processed, updated } = processDueRecurringTransactions(
+        recurringTransactions,
+        addTransaction
+      );
+
+      if (processed.length > 0) {
+        // Add all processed transactions
+        for (const transaction of processed) {
+          try {
+            await addTransaction(transaction);
+          } catch (error) {
+            console.error('Failed to add recurring transaction:', error);
+          }
+        }
+
+        // Update recurring transactions with new next due dates
+        setRecurringTransactions(updated);
+        saveRecurringTransactions(updated);
+
+        showToast.success(`Processed ${processed.length} recurring transaction${processed.length === 1 ? '' : 's'}!`);
+      }
+    };
+
+    if (recurringTransactions.length > 0) {
+      // Set up processor to run every hour
+      const cleanup = setupRecurringTransactionProcessor(processRecurring, 60);
+      return cleanup;
+    }
+  }, [recurringTransactions, addTransaction]);
 
   const expenseCategories = [
     'Groceries', 'Dining', 'Transportation', 'Utilities', 'Housing', 
@@ -132,9 +189,35 @@ const Expenses: React.FC = () => {
 
   const handleManualSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Comprehensive validation
+    const errors: string[] = [];
+    
+    if (!manualExpense.description.trim()) {
+      errors.push('Description is required');
+    } else if (manualExpense.description.trim().length < 3) {
+      errors.push('Description must be at least 3 characters');
+    }
+    
     const amount = parseFloat(manualExpense.amount);
-    if (isNaN(amount) || amount <= 0) {
-      alert('Please enter a valid amount');
+    if (!manualExpense.amount.trim() || isNaN(amount)) {
+      errors.push('Please enter a valid amount');
+    } else if (amount <= 0) {
+      errors.push('Amount must be greater than 0');
+    } else if (amount > 1000000) {
+      errors.push('Amount seems unusually large. Please verify.');
+    }
+    
+    if (!manualExpense.date) {
+      errors.push('Date is required');
+    }
+    
+    if (!manualExpense.category) {
+      errors.push('Category is required');
+    }
+    
+    if (errors.length > 0) {
+      showToast.validationError(errors.join(', '));
       return;
     }
 
@@ -157,27 +240,72 @@ const Expenses: React.FC = () => {
 
   const handleRecurringSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Comprehensive validation for recurring expenses
+    const errors: string[] = [];
+    
+    if (!recurringExpense.description.trim()) {
+      errors.push('Description is required');
+    } else if (recurringExpense.description.trim().length < 3) {
+      errors.push('Description must be at least 3 characters');
+    }
+    
     const amount = parseFloat(recurringExpense.amount);
-    if (isNaN(amount) || amount <= 0) {
-      alert('Please enter a valid amount');
+    if (!recurringExpense.amount.trim() || isNaN(amount)) {
+      errors.push('Please enter a valid amount');
+    } else if (amount <= 0) {
+      errors.push('Amount must be greater than 0');
+    } else if (amount > 100000) {
+      errors.push('Monthly recurring amount seems unusually large. Please verify.');
+    }
+    
+    if (!recurringExpense.frequency) {
+      errors.push('Frequency is required');
+    }
+    
+    if (!recurringExpense.category) {
+      errors.push('Category is required');
+    }
+    
+    if (errors.length > 0) {
+      showToast.validationError(errors.join(', '));
       return;
     }
 
-    // For now, just add as a regular transaction
-    // In a full implementation, this would set up recurring transactions
-    addTransaction({
-      date: new Date().toISOString(),
-      description: `${recurringExpense.description} (${recurringExpense.frequency})`,
-      amount: -Math.abs(amount),
-      category: recurringExpense.category,
-      userId: users[0]?.id,
-    });
+    // Create recurring transaction
+    const newRecurring: RecurringTransaction = {
+      id: `recurring-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      template: {
+        description: recurringExpense.description.trim(),
+        amount: -amount, // Make it negative for expense
+        category: recurringExpense.category,
+        userId: users[0]?.id || 'anonymous',
+      },
+      frequency: recurringExpense.frequency as 'weekly' | 'monthly' | 'quarterly' | 'yearly',
+      startDate: recurringExpense.startDate,
+      endDate: recurringExpense.endDate || undefined,
+      isActive: true,
+      nextDueDate: getNextDueDate({
+        frequency: recurringExpense.frequency as any,
+        startDate: recurringExpense.startDate,
+        lastProcessed: undefined,
+      } as any)
+    };
+
+    // Add to recurring transactions
+    const updatedRecurring = [...recurringTransactions, newRecurring];
+    setRecurringTransactions(updatedRecurring);
+    saveRecurringTransactions(updatedRecurring);
+
+    showToast.success(`Recurring ${recurringExpense.frequency} expense created: ${recurringExpense.description}`);
 
     setRecurringExpense({
       description: '',
       amount: '',
       category: 'Bills',
       frequency: 'monthly',
+      startDate: getTodayDateString(),
+      endDate: '',
     });
     setShowRecurringForm(false);
   };
@@ -222,7 +350,7 @@ const Expenses: React.FC = () => {
       // Show detailed user feedback
       if (successCount > 0 && errorCount === 0) {
         // Perfect import
-        alert(`✅ Successfully imported all ${successCount} transaction${successCount === 1 ? '' : 's'}!`);
+        showToast.success(`Successfully imported ${successCount} transaction${successCount === 1 ? '' : 's'}!`);
       } else if (successCount > 0 && errorCount > 0) {
         // Partial import
         const message = `⚠️ Partial Import Complete\n\n` +
@@ -230,20 +358,16 @@ const Expenses: React.FC = () => {
           `❌ Failed to import: ${errorCount} transaction${errorCount === 1 ? '' : 's'}\n\n` +
           `The failed transactions may have invalid data or duplicate IDs. ` +
           `Check the browser console for detailed error messages.`;
-        alert(message);
+                  showToast.warning(message);
       } else {
         // Complete failure
-        alert('❌ Import Failed\n\nNo transactions could be imported. This may be due to:\n' +
-              '• Database connection issues\n' +
-              '• Invalid transaction data\n' +
-              '• Duplicate transaction IDs\n\n' +
-              'Please check your data and try again.');
+        showToast.error('Import Failed - No transactions could be imported. This may be due to database connection issues, invalid transaction data, or duplicate transaction IDs. Please check your data and try again.');
       }
       
     } catch (error) {
       console.error('Error in handleApproveTransactions:', error);
       setUploading(false);
-      alert('Error importing transactions. Please try again.');
+              showToast.error('Error importing transactions. Please try again.');
     }
   };
 
@@ -403,25 +527,11 @@ const Expenses: React.FC = () => {
                 }
                 
                 // Date filter
-                const transactionDate = new Date(transaction.date);
-                const now = new Date();
-                
-                switch (dateFilter) {
-                  case 'today':
-                    return transactionDate.toDateString() === now.toDateString();
-                  case 'week':
-                    const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-                    return transactionDate >= weekAgo;
-                  case 'month':
-                    return transactionDate.getMonth() === now.getMonth() && transactionDate.getFullYear() === now.getFullYear();
-                  case 'quarter':
-                    const currentQuarter = Math.floor(now.getMonth() / 3);
-                    const transactionQuarter = Math.floor(transactionDate.getMonth() / 3);
-                    return transactionQuarter === currentQuarter && transactionDate.getFullYear() === now.getFullYear();
-                  case 'year':
-                    return transactionDate.getFullYear() === now.getFullYear();
-                  default:
-                    return true;
+                if (dateFilter !== 'all') {
+                  const range = getDateRange(dateFilter as 'today' | 'week' | 'month' | 'quarter' | 'year');
+                  if (!isDateInRange(transaction.date, range.start, range.end)) {
+                    return false;
+                  }
                 }
               })
               .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
@@ -436,7 +546,7 @@ const Expenses: React.FC = () => {
                         <div>
                           <h4 className="font-medium text-gray-900">{transaction.description}</h4>
                           <p className="text-sm text-gray-600">
-                            {new Date(transaction.date).toLocaleDateString()} • {transaction.category}
+                            {getRelativeDateString(transaction.date)} • {transaction.category}
                           </p>
                         </div>
                       </div>
@@ -872,11 +982,22 @@ const Expenses: React.FC = () => {
               </div>
             </div>
             <form 
-              onSubmit={(e) => {
+              onSubmit={async (e) => {
                 e.preventDefault();
-                // For now, just close the modal - actual update functionality would go here
-                alert('Edit functionality would be implemented here with updateTransaction function');
-                setEditingExpense(null);
+                if (!editingExpense) return;
+                
+                try {
+                  await updateTransaction(editingExpense.id, {
+                    description: editingExpense.description,
+                    amount: editingExpense.amount,
+                    category: editingExpense.category,
+                    date: editingExpense.date
+                  });
+                  showToast.updated('Expense');
+                  setEditingExpense(null);
+                } catch (error) {
+                  showToast.updateFailed('expense', error instanceof Error ? error.message : undefined);
+                }
               }} 
               className="p-6 space-y-4"
             >
@@ -990,11 +1111,17 @@ const Expenses: React.FC = () => {
                   Cancel
                 </button>
                 <button
-                  onClick={() => {
-                    // For now, just show an alert - actual delete functionality would go here
-                    alert('Delete functionality would be implemented here with deleteTransaction function');
-                    setShowDeleteConfirm(false);
-                    setExpenseToDelete(null);
+                  onClick={async () => {
+                    if (!expenseToDelete) return;
+                    
+                    try {
+                      await deleteTransaction(expenseToDelete.id);
+                      showToast.deleted('Expense');
+                      setShowDeleteConfirm(false);
+                      setExpenseToDelete(null);
+                    } catch (error) {
+                      showToast.deleteFailed('expense', error instanceof Error ? error.message : undefined);
+                    }
                   }}
                   className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2"
                 >

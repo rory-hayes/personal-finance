@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Settings, Grid, Eye, EyeOff, Palette, Layout, Save } from 'lucide-react';
+import { showToast } from '../../../utils/toast';
 
 interface DashboardCustomizationCardProps {
   card: any;
@@ -49,7 +50,7 @@ const DashboardCustomizationCard: React.FC<DashboardCustomizationCardProps> = ()
       cardSpacing,
       showTooltips
     });
-    alert('Dashboard settings saved!');
+    showToast.success('Dashboard settings saved!');
   };
 
   return (

@@ -412,6 +412,62 @@ export const useFinanceData = () => {
     }
   }, [user]);
 
+  const updateTransaction = useCallback(async (id: string, updates: Partial<Transaction>) => {
+    if (!user) return;
+
+    try {
+      const { error } = await supabase
+        .from('transactions')
+        .update({
+          date: updates.date,
+          description: updates.description,
+          amount: updates.amount,
+          category: updates.category
+        })
+        .eq('id', id);
+
+      if (error) throw error;
+
+      // Update local state
+      setTransactions(prev => prev.map(transaction => 
+        transaction.id === id ? { ...transaction, ...updates } : transaction
+      ));
+
+      // Reload data to ensure consistency and update monthly summary
+      await loadTransactions();
+      await updateMonthlySummary();
+
+      console.log('Transaction updated successfully:', id);
+    } catch (error) {
+      console.error('Error updating transaction:', error);
+      throw error; // Re-throw so UI can handle the error
+    }
+  }, [user]);
+
+  const deleteTransaction = useCallback(async (id: string) => {
+    if (!user) return;
+
+    try {
+      const { error } = await supabase
+        .from('transactions')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+
+      // Update local state
+      setTransactions(prev => prev.filter(transaction => transaction.id !== id));
+
+      // Update monthly summary since transactions changed
+      await updateMonthlySummary();
+
+      console.log('Transaction deleted successfully:', id);
+    } catch (error) {
+      console.error('Error deleting transaction:', error);
+      throw error; // Re-throw so UI can handle the error
+    }
+  }, [user]);
+
   const addUser = useCallback(async (newUser: Omit<User, 'id'>) => {
     if (!user) return;
 
@@ -1066,6 +1122,8 @@ export const useFinanceData = () => {
     monthlyAllocations,
     loading,
     addTransaction,
+    updateTransaction,
+    deleteTransaction,
     addUser,
     updateUserIncome,
     addAsset,

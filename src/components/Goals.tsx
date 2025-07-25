@@ -3,6 +3,13 @@ import { Plus, Target, Calendar, DollarSign, TrendingUp, Edit3, Trash2 } from 'l
 import { useFinanceData } from '../hooks/useFinanceData';
 import { useFormValidation, commonValidationRules } from '../hooks/useFormValidation';
 import { Goal } from '../types';
+import { 
+  getTodayDateString, 
+  getMonthsUntilDate, 
+  getDaysDifference, 
+  formatDisplayDate,
+  getRelativeDateString 
+} from '../utils/dateUtils';
 
 const Goals: React.FC = () => {
   const { goals, addGoal, updateGoal, deleteGoal, totalIncome, monthlySavings } = useFinanceData();
@@ -156,18 +163,19 @@ const Goals: React.FC = () => {
 
   const calculateMonthlyTarget = (goal: Goal) => {
     const remaining = goal.targetAmount - goal.currentAmount;
-    const monthsLeft = Math.ceil((new Date(goal.targetDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24 * 30));
+    const monthsLeft = getMonthsUntilDate(goal.targetDate);
     return monthsLeft > 0 ? remaining / monthsLeft : remaining;
   };
 
   const getGoalStatus = (goal: Goal) => {
     const progress = (goal.currentAmount / goal.targetAmount) * 100;
-    const monthsLeft = Math.ceil((new Date(goal.targetDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24 * 30));
+    const monthsLeft = getMonthsUntilDate(goal.targetDate);
+    const daysLeft = getDaysDifference(getTodayDateString(), goal.targetDate);
     const monthlyTarget = calculateMonthlyTarget(goal);
     
     if (progress >= 100) {
       return { status: 'completed', color: 'text-green-600', bg: 'bg-green-100' };
-    } else if (monthsLeft <= 0) {
+    } else if (daysLeft <= 0) {
       return { status: 'overdue', color: 'text-red-600', bg: 'bg-red-100' };
     } else if (monthlyTarget > monthlySavings * 1.2) {
       return { status: 'challenging', color: 'text-yellow-600', bg: 'bg-yellow-100' };
@@ -313,7 +321,7 @@ const Goals: React.FC = () => {
                   id="targetDate"
                   value={formData.targetDate}
                   onChange={(e) => handleFieldChange('targetDate', e.target.value)}
-                  min={new Date().toISOString().split('T')[0]}
+                  min={getTodayDateString()}
                   required
                   {...getFieldProps('targetDate')}
                 />
@@ -363,7 +371,8 @@ const Goals: React.FC = () => {
         <div className="space-y-4">
           {goals.map((goal) => {
             const progress = (goal.currentAmount / goal.targetAmount) * 100;
-            const monthsLeft = Math.ceil((new Date(goal.targetDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24 * 30));
+            const monthsLeft = getMonthsUntilDate(goal.targetDate);
+            const daysLeft = getDaysDifference(getTodayDateString(), goal.targetDate);
             const monthlyTarget = calculateMonthlyTarget(goal);
             const status = getGoalStatus(goal);
             
@@ -386,7 +395,7 @@ const Goals: React.FC = () => {
                       <div className="flex items-center gap-1">
                         <Calendar className="h-4 w-4" />
                         <span>
-                          {monthsLeft > 0 ? `${monthsLeft} months left` : 'Overdue'}
+                          {daysLeft > 0 ? getRelativeDateString(goal.targetDate) : 'Overdue'}
                         </span>
                       </div>
                       <div className="flex items-center gap-1">

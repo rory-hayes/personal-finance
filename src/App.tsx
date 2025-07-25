@@ -10,6 +10,7 @@ import Assets from './components/Assets';
 import Goals from './components/Goals';
 import Users from './components/Users';
 import Budget from './components/Budget';
+import SupabaseStatusNotification from './components/SupabaseStatusNotification';
 
 // Main app content component (after authentication)
 const AppContent: React.FC = () => {
@@ -90,9 +91,12 @@ const AppContent: React.FC = () => {
   };
 
   return (
-    <Layout activeTab={activeTab} onTabChange={setActiveTab}>
-      {renderContent()}
-    </Layout>
+    <>
+      <SupabaseStatusNotification />
+      <Layout activeTab={activeTab} onTabChange={setActiveTab}>
+        {renderContent()}
+      </Layout>
+    </>
   );
 };
 

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { X } from 'lucide-react';
 import { User } from '../../../types';
+import { showToast } from '../../../utils/toast';
 
 interface VestingScheduleData {
   userId: string;
@@ -55,12 +56,12 @@ const VestingScheduleModal: React.FC<VestingScheduleModalProps> = ({
     
     const monthlyAmount = parseFloat(formData.monthlyAmount);
     if (isNaN(monthlyAmount) || monthlyAmount <= 0) {
-      alert('Please enter a valid monthly amount');
+      showToast.validationError('Please enter a valid monthly amount');
       return;
     }
     
     if (!formData.startDate || !formData.endDate) {
-      alert('Please enter both start and end dates');
+      showToast.validationError('Please enter both start and end dates');
       return;
     }
     
@@ -68,7 +69,7 @@ const VestingScheduleModal: React.FC<VestingScheduleModalProps> = ({
     const endDate = new Date(formData.endDate);
     
     if (endDate <= startDate) {
-      alert('End date must be after start date');
+      showToast.validationError('End date must be after start date');
       return;
     }
 
@@ -100,7 +101,7 @@ const VestingScheduleModal: React.FC<VestingScheduleModalProps> = ({
       
     } catch (error) {
       console.error('Error adding vesting schedule:', error);
-      alert('Error adding vesting schedule. Please try again.');
+      showToast.error('Error adding vesting schedule. Please try again.');
     } finally {
       setIsSubmitting(false);
     }

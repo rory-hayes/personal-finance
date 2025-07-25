@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Plus, User, DollarSign, Edit3, Users as UsersIcon, Target, CreditCard, ArrowUpRight, Wallet, TrendingUp, Trash2, X } from 'lucide-react';
 import { useFinanceData } from '../hooks/useFinanceData';
 import { User as UserType, Account } from '../types';
+import { showToast } from '../utils/toast';
 
 const Users: React.FC = () => {
   const { users, addUser, updateUserIncome, totalIncome, accounts, addAccount, updateAccount, deleteAccount, totalAccountBalance, allocateToAccount } = useFinanceData();
@@ -64,20 +65,42 @@ const Users: React.FC = () => {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
+    // Comprehensive validation
+    const errors: string[] = [];
+    
+    if (!formData.name.trim()) {
+      errors.push('Name is required');
+    } else if (formData.name.trim().length < 2) {
+      errors.push('Name must be at least 2 characters');
+    }
+    
     const income = parseFloat(formData.monthlyIncome);
-    if (isNaN(income) || income < 0) {
-      alert('Please enter a valid monthly income');
+    if (!formData.monthlyIncome.trim() || isNaN(income)) {
+      errors.push('Please enter a valid monthly income');
+    } else if (income < 0) {
+      errors.push('Monthly income cannot be negative');
+    } else if (income > 1000000) {
+      errors.push('Monthly income seems unusually large. Please verify.');
+    }
+    
+    if (errors.length > 0) {
+      showToast.validationError(errors.join(', '));
       return;
     }
 
-    addUser({
-      name: formData.name.trim(),
-      monthlyIncome: income,
-      color: '#3B82F6', // Will be overridden by the hook
-    });
+    try {
+      addUser({
+        name: formData.name.trim(),
+        monthlyIncome: income,
+        color: '#3B82F6', // Will be overridden by the hook
+      });
 
-    setFormData({ name: '', monthlyIncome: '' });
-    setShowAddForm(false);
+      setFormData({ name: '', monthlyIncome: '' });
+      setShowAddForm(false);
+      showToast.success('Household member added successfully!');
+    } catch (error) {
+      showToast.error('Failed to add household member. Please try again.');
+    }
   };
 
   const handleCancel = () => {
@@ -88,9 +111,26 @@ const Users: React.FC = () => {
   const handleAccountSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    // Comprehensive validation
+    const errors: string[] = [];
+    
+    if (!accountFormData.name.trim()) {
+      errors.push('Account name is required');
+    } else if (accountFormData.name.trim().length < 3) {
+      errors.push('Account name must be at least 3 characters');
+    }
+    
     const balance = parseFloat(accountFormData.balance);
-    if (isNaN(balance) || balance < 0) {
-      alert('Please enter a valid balance');
+    if (!accountFormData.balance.trim() || isNaN(balance)) {
+      errors.push('Please enter a valid balance');
+    } else if (balance < 0) {
+      errors.push('Account balance cannot be negative');
+    } else if (balance > 10000000) {
+      errors.push('Account balance seems unusually large. Please verify.');
+    }
+    
+    if (errors.length > 0) {
+      showToast.validationError(errors.join(', '));
       return;
     }
 
@@ -106,10 +146,10 @@ const Users: React.FC = () => {
 
       setAccountFormData({ name: '', type: 'checking', balance: '' });
       setShowAccountForm(false);
-      alert('Account added successfully!');
+      showToast.success('Account added successfully!');
     } catch (error) {
       console.error('Error adding account:', error);
-      alert('Failed to add account. Please try again.');
+      showToast.error('Failed to add account. Please try again.');
     }
   };
 

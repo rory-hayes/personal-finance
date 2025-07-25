@@ -43,15 +43,18 @@ export const parseCSV = (content: string, userId?: string): Transaction[] => {
         console.log(`Parsed: date=${date}, amount=${amount}`);
 
         if (!isNaN(amount) && amount !== 0 && date) {
+          const detectedCategory = category || categorizeTransaction(description);
+          const normalizedAmount = normalizeAmountByCategory(amount, detectedCategory, description);
+          
           transactions.push({
             id: `${i}-${Date.now()}`,
             date: date,
             description: description,
-            amount: amount,
-            category: category || categorizeTransaction(description),
+            amount: normalizedAmount,
+            category: detectedCategory,
             userId: userId || 'unknown',
           });
-          console.log(`Added transaction: ${description} - ${amount}`);
+          console.log(`Added transaction: ${description} - ${normalizedAmount} (${detectedCategory})`);
         }
       } catch (error) {
         console.warn(`Error parsing CSV line ${i}:`, line, error);
@@ -80,12 +83,15 @@ export const parsePDF = (content: string, userId?: string): Transaction[] => {
       const amount = parseFloat(amountStr.replace(/[$,]/g, ''));
       
       if (!isNaN(amount)) {
+        const detectedCategory = categorizeTransaction(description);
+        const normalizedAmount = normalizeAmountByCategory(amount, detectedCategory, description);
+        
         transactions.push({
           id: `pdf-${index}-${Date.now()}`,
           date: parseDate(dateStr) || new Date().toISOString(),
           description: description.trim(),
-          amount: amount,
-          category: categorizeTransaction(description),
+          amount: normalizedAmount,
+          category: detectedCategory,
           userId: userId || 'unknown',
         });
       }
@@ -297,23 +303,217 @@ const parseDate = (dateStr: string): string | null => {
 const categorizeTransaction = (description: string): string => {
   const desc = description.toLowerCase();
   
-  if (desc.includes('grocery') || desc.includes('supermarket') || desc.includes('food')) {
-    return 'Groceries';
-  } else if (desc.includes('gas') || desc.includes('fuel') || desc.includes('shell') || desc.includes('bp')) {
-    return 'Transportation';
-  } else if (desc.includes('restaurant') || desc.includes('cafe') || desc.includes('dining')) {
-    return 'Dining';
-  } else if (desc.includes('utility') || desc.includes('electric') || desc.includes('water')) {
-    return 'Utilities';
-  } else if (desc.includes('rent') || desc.includes('mortgage')) {
-    return 'Housing';
-  } else if (desc.includes('amazon') || desc.includes('shopping') || desc.includes('store')) {
-    return 'Shopping';
-  } else if (desc.includes('medical') || desc.includes('health') || desc.includes('pharmacy')) {
-    return 'Healthcare';
-  } else if (desc.includes('entertainment') || desc.includes('movie') || desc.includes('netflix')) {
-    return 'Entertainment';
-  } else {
-    return 'Other';
+  // Income detection
+  if (desc.includes('salary') || desc.includes('payroll') || desc.includes('paycheck') || 
+      desc.includes('direct deposit') || desc.includes('wages') || desc.includes('income') ||
+      desc.includes('refund') || desc.includes('cashback') || desc.includes('dividend') ||
+      desc.includes('interest') || desc.includes('bonus') || desc.includes('commission') ||
+      desc.includes('freelance') || desc.includes('consulting') || desc.includes('settlement') ||
+      desc.includes('reimbursement') || desc.includes('transfer in') || desc.includes('deposit') ||
+      desc.includes('credit') && !desc.includes('credit card')) {
+    return 'Income';
   }
+  
+  // Food & Dining
+  if (desc.includes('grocery') || desc.includes('supermarket') || desc.includes('food') ||
+      desc.includes('whole foods') || desc.includes('trader joe') || desc.includes('walmart') ||
+      desc.includes('costco') || desc.includes('target') || desc.includes('safeway') ||
+      desc.includes('kroger') || desc.includes('publix') || desc.includes('aldi')) {
+    return 'Groceries';
+  }
+  
+  if (desc.includes('restaurant') || desc.includes('cafe') || desc.includes('dining') ||
+      desc.includes('mcdonald') || desc.includes('starbucks') || desc.includes('subway') ||
+      desc.includes('pizza') || desc.includes('burger') || desc.includes('taco') ||
+      desc.includes('kfc') || desc.includes('domino') || desc.includes('chipotle') ||
+      desc.includes('dunkin') || desc.includes('coffee') || desc.includes('bar ') ||
+      desc.includes('pub ') || desc.includes('grill') || desc.includes('bistro') ||
+      desc.includes('diner') || desc.includes('bakery') || desc.includes('buffet')) {
+    return 'Dining';
+  }
+  
+  // Transportation
+  if (desc.includes('gas') || desc.includes('fuel') || desc.includes('shell') || 
+      desc.includes('bp') || desc.includes('exxon') || desc.includes('chevron') ||
+      desc.includes('mobil') || desc.includes('citgo') || desc.includes('sunoco') ||
+      desc.includes('valero') || desc.includes('texaco') || desc.includes('arco') ||
+      desc.includes('uber') || desc.includes('lyft') || desc.includes('taxi') ||
+      desc.includes('metro') || desc.includes('transit') || desc.includes('parking') ||
+      desc.includes('toll') || desc.includes('dmv') || desc.includes('registration') ||
+      desc.includes('insurance') && desc.includes('auto') || desc.includes('car wash') ||
+      desc.includes('oil change') || desc.includes('tire') || desc.includes('mechanic') ||
+      desc.includes('repair') && (desc.includes('auto') || desc.includes('car'))) {
+    return 'Transportation';
+  }
+  
+  // Housing & Utilities
+  if (desc.includes('rent') || desc.includes('mortgage') || desc.includes('property tax') ||
+      desc.includes('homeowner') || desc.includes('renter') || desc.includes('property mgmt') ||
+      desc.includes('landlord') || desc.includes('lease')) {
+    return 'Housing';
+  }
+  
+  if (desc.includes('utility') || desc.includes('electric') || desc.includes('water') ||
+      desc.includes('gas bill') || desc.includes('power') || desc.includes('energy') ||
+      desc.includes('pge') || desc.includes('con ed') || desc.includes('sdge') ||
+      desc.includes('duke energy') || desc.includes('water dept') || desc.includes('sewage') ||
+      desc.includes('trash') || desc.includes('waste') || desc.includes('recycling')) {
+    return 'Utilities';
+  }
+  
+  // Shopping & Retail
+  if (desc.includes('amazon') || desc.includes('ebay') || desc.includes('target') ||
+      desc.includes('walmart') || desc.includes('costco') || desc.includes('best buy') ||
+      desc.includes('home depot') || desc.includes('lowes') || desc.includes('ikea') ||
+      desc.includes('macy') || desc.includes('nordstrom') || desc.includes('gap') ||
+      desc.includes('h&m') || desc.includes('zara') || desc.includes('uniqlo') ||
+      desc.includes('shopping') || desc.includes('store') || desc.includes('mall') ||
+      desc.includes('retail') || desc.includes('purchase') || desc.includes('etsy') ||
+      desc.includes('wayfair') || desc.includes('overstock')) {
+    return 'Shopping';
+  }
+  
+  // Healthcare
+  if (desc.includes('medical') || desc.includes('health') || desc.includes('pharmacy') ||
+      desc.includes('cvs') || desc.includes('walgreens') || desc.includes('rite aid') ||
+      desc.includes('doctor') || desc.includes('hospital') || desc.includes('clinic') ||
+      desc.includes('dentist') || desc.includes('dental') || desc.includes('vision') ||
+      desc.includes('optical') || desc.includes('medicare') || desc.includes('medicaid') ||
+      desc.includes('prescription') || desc.includes('therapist') || desc.includes('therapy') ||
+      desc.includes('chiropractor') || desc.includes('dermatology') || desc.includes('radiology') ||
+      desc.includes('lab corp') || desc.includes('quest') || desc.includes('kaiser')) {
+    return 'Healthcare';
+  }
+  
+  // Entertainment & Subscriptions
+  if (desc.includes('netflix') || desc.includes('spotify') || desc.includes('hulu') ||
+      desc.includes('disney') || desc.includes('apple music') || desc.includes('youtube') ||
+      desc.includes('amazon prime') || desc.includes('hbo') || desc.includes('paramount') ||
+      desc.includes('peacock') || desc.includes('entertainment') || desc.includes('movie') ||
+      desc.includes('theater') || desc.includes('cinema') || desc.includes('concert') ||
+      desc.includes('gaming') || desc.includes('steam') || desc.includes('playstation') ||
+      desc.includes('xbox') || desc.includes('nintendo') || desc.includes('subscription') ||
+      desc.includes('membership') || desc.includes('gym') || desc.includes('fitness') ||
+      desc.includes('planet fitness') || desc.includes('la fitness') || desc.includes('yoga') ||
+      desc.includes('peloton')) {
+    return 'Entertainment';
+  }
+  
+  // Bills & Financial Services
+  if (desc.includes('phone') || desc.includes('mobile') || desc.includes('verizon') ||
+      desc.includes('at&t') || desc.includes('t-mobile') || desc.includes('sprint') ||
+      desc.includes('internet') || desc.includes('cable') || desc.includes('comcast') ||
+      desc.includes('xfinity') || desc.includes('spectrum') || desc.includes('cox') ||
+      desc.includes('dish') || desc.includes('directv') || desc.includes('telecom') ||
+      desc.includes('broadband') || desc.includes('wifi')) {
+    return 'Bills';
+  }
+  
+  if (desc.includes('insurance') && !desc.includes('auto') ||
+      desc.includes('premium') || desc.includes('policy') || desc.includes('coverage') ||
+      desc.includes('allstate') || desc.includes('geico') || desc.includes('state farm') ||
+      desc.includes('progressive') || desc.includes('aetna') || desc.includes('blue cross') ||
+      desc.includes('life insurance') || desc.includes('health insurance')) {
+    return 'Insurance';
+  }
+  
+  if (desc.includes('bank') || desc.includes('atm') || desc.includes('fee') ||
+      desc.includes('service charge') || desc.includes('overdraft') || desc.includes('maintenance') ||
+      desc.includes('transfer') || desc.includes('wire') || desc.includes('check') ||
+      desc.includes('loan') || desc.includes('credit card') || desc.includes('payment') ||
+      desc.includes('finance charge') || desc.includes('interest charge')) {
+    return 'Banking';
+  }
+  
+  // Investment & Savings
+  if (desc.includes('investment') || desc.includes('401k') || desc.includes('ira') ||
+      desc.includes('retirement') || desc.includes('pension') || desc.includes('mutual fund') ||
+      desc.includes('etf') || desc.includes('stock') || desc.includes('bond') ||
+      desc.includes('brokerage') || desc.includes('fidelity') || desc.includes('vanguard') ||
+      desc.includes('schwab') || desc.includes('robinhood') || desc.includes('td ameritrade') ||
+      desc.includes('e*trade') || desc.includes('savings') || desc.includes('cd ') ||
+      desc.includes('certificate of deposit')) {
+    return 'Investments';
+  }
+  
+  // Travel
+  if (desc.includes('airline') || desc.includes('flight') || desc.includes('airport') ||
+      desc.includes('hotel') || desc.includes('airbnb') || desc.includes('booking') ||
+      desc.includes('expedia') || desc.includes('travel') || desc.includes('vacation') ||
+      desc.includes('trip') || desc.includes('rental car') || desc.includes('hertz') ||
+      desc.includes('enterprise') || desc.includes('budget rent') || desc.includes('avis') ||
+      desc.includes('marriott') || desc.includes('hilton') || desc.includes('hyatt') ||
+      desc.includes('delta') || desc.includes('american air') || desc.includes('united') ||
+      desc.includes('southwest') || desc.includes('jetblue')) {
+    return 'Travel';
+  }
+  
+  // Education
+  if (desc.includes('tuition') || desc.includes('school') || desc.includes('college') ||
+      desc.includes('university') || desc.includes('education') || desc.includes('student') ||
+      desc.includes('textbook') || desc.includes('course') || desc.includes('training') ||
+      desc.includes('certification') || desc.includes('udemy') || desc.includes('coursera') ||
+      desc.includes('khan academy') || desc.includes('masterclass')) {
+    return 'Education';
+  }
+  
+  // Personal Care
+  if (desc.includes('salon') || desc.includes('barber') || desc.includes('haircut') ||
+      desc.includes('spa') || desc.includes('massage') || desc.includes('beauty') ||
+      desc.includes('cosmetic') || desc.includes('skincare') || desc.includes('personal care') ||
+      desc.includes('ulta') || desc.includes('sephora') || desc.includes('sally beauty')) {
+    return 'Personal Care';
+  }
+  
+  // Taxes & Government
+  if (desc.includes('tax') || desc.includes('irs') || desc.includes('federal') ||
+      desc.includes('state tax') || desc.includes('property tax') || desc.includes('dmv') ||
+      desc.includes('license') || desc.includes('permit') || desc.includes('government') ||
+      desc.includes('city hall') || desc.includes('court') || desc.includes('fine') ||
+      desc.includes('penalty') || desc.includes('toll')) {
+    return 'Taxes';
+  }
+  
+  // Charitable & Donations
+  if (desc.includes('donation') || desc.includes('charity') || desc.includes('nonprofit') ||
+      desc.includes('church') || desc.includes('temple') || desc.includes('mosque') ||
+      desc.includes('goodwill') || desc.includes('salvation army') || desc.includes('red cross') ||
+      desc.includes('united way') || desc.includes('give') || desc.includes('tithe') ||
+      desc.includes('offering')) {
+    return 'Charitable';
+  }
+  
+  // Default fallback
+  return 'Other';
+};
+
+const normalizeAmountByCategory = (amount: number, category: string, description: string): number => {
+  const desc = description.toLowerCase();
+  
+  // If category is Income, amount should be positive
+  if (category === 'Income') {
+    return Math.abs(amount);
+  }
+  
+  // For most expense categories, amount should be negative
+  const expenseCategories = [
+    'Groceries', 'Dining', 'Transportation', 'Housing', 'Utilities', 
+    'Shopping', 'Healthcare', 'Entertainment', 'Bills', 'Insurance', 
+    'Banking', 'Travel', 'Education', 'Personal Care', 'Taxes', 'Other'
+  ];
+  
+  if (expenseCategories.includes(category)) {
+    // Check for specific income keywords in description that might override category
+    const incomeKeywords = ['refund', 'cashback', 'rebate', 'return', 'credit', 'reimbursement'];
+    const hasIncomeKeyword = incomeKeywords.some(keyword => desc.includes(keyword));
+    
+    if (hasIncomeKeyword) {
+      return Math.abs(amount); // Income, should be positive
+    }
+    
+    return amount > 0 ? -amount : amount; // Expense, should be negative
+  }
+  
+  // For Investments and Charitable, preserve the original sign as it could be either
+  return amount;
 };
