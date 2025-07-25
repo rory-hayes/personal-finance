@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Calculator, DollarSign, TrendingUp, AlertTriangle, CheckCircle, Edit3, Save, X } from 'lucide-react';
+import { Plus, Calculator, DollarSign, TrendingUp, AlertTriangle, CheckCircle, Edit3, Trash2, X } from 'lucide-react';
+import BudgetEditor from './BudgetEditor';
 import { useFinanceData } from '../hooks/useFinanceData';
 import { Budget as BudgetType, BudgetCategory } from '../types';
 
@@ -10,8 +11,9 @@ const Budget: React.FC = () => {
     budgets, 
     budgetCategories, 
     transactions,
-    createMonthlyBudget, 
-    assignMainAccount, 
+    createMonthlyBudget,
+    deleteBudget,
+    assignMainAccount,
     allocateMonthlyBudget,
     getBudgetStatus,
     totalIncome
@@ -24,6 +26,8 @@ const Budget: React.FC = () => {
   
   const [showBudgetForm, setShowBudgetForm] = useState(false);
   const [editingUser, setEditingUser] = useState<string | null>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [budgetToDelete, setBudgetToDelete] = useState<BudgetType | null>(null);
   const [budgetFormData, setBudgetFormData] = useState({
     userId: '',
     totalBudget: '',
@@ -131,6 +135,27 @@ const Budget: React.FC = () => {
     }
   };
 
+  const handleDeleteBudget = (budget: BudgetType) => {
+    setBudgetToDelete(budget);
+    setShowDeleteConfirm(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!budgetToDelete) return;
+    try {
+      await deleteBudget(budgetToDelete.id);
+      setShowDeleteConfirm(false);
+      setBudgetToDelete(null);
+    } catch (error) {
+      console.error('Failed to delete budget:', error);
+    }
+  };
+
+  const handleCancelDelete = () => {
+    setShowDeleteConfirm(false);
+    setBudgetToDelete(null);
+  };
+
   const getBudgetUtilization = (userId: string) => {
     const budget = currentMonthBudgets.find(b => b.userId === userId);
     if (!budget) return { percentage: 0, spent: 0, remaining: 0 };
@@ -176,6 +201,40 @@ const Budget: React.FC = () => {
             >
               <X className="h-4 w-4" />
             </button>
+          </div>
+        </div>
+      )}
+
+      {editingUser && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <BudgetEditor
+            budgetId={currentMonthBudgets.find(b => b.userId === editingUser)?.id || ''}
+            onClose={() => setEditingUser(null)}
+          />
+        </div>
+      )}
+
+      {showDeleteConfirm && budgetToDelete && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl max-w-md w-full p-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-2 bg-red-100 rounded-full">
+                <Trash2 className="h-5 w-5 text-red-600" />
+              </div>
+              <h2 className="text-xl font-bold text-gray-900">Delete Budget</h2>
+            </div>
+            <p className="text-gray-600 mb-4">Are you sure you want to delete this budget?</p>
+            <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 mb-6">
+              <p className="font-medium text-gray-900">{budgetToDelete.month}</p>
+              <p className="text-sm text-gray-600">€{budgetToDelete.totalBudget.toLocaleString()}</p>
+            </div>
+            <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-6">
+              <p className="text-red-800 text-sm font-medium">⚠️ This action cannot be undone!</p>
+            </div>
+            <div className="flex gap-3">
+              <button onClick={handleCancelDelete} className="flex-1 px-4 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50">Cancel</button>
+              <button onClick={handleConfirmDelete} className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700">Delete Budget</button>
+            </div>
           </div>
         </div>
       )}
@@ -282,6 +341,16 @@ const Budget: React.FC = () => {
                       className="px-3 py-2 text-gray-600 border border-gray-300 text-sm rounded-lg hover:bg-gray-50"
                     >
                       <Edit3 className="h-4 w-4" />
+                    </button>
+                    <button
+                      onClick={() => {
+                        const b = currentMonthBudgets.find((bud) => bud.userId === user.id);
+                        if (b) handleDeleteBudget(b);
+                      }}
+                      className="px-3 py-2 text-gray-600 border border-gray-300 text-sm rounded-lg hover:bg-gray-50"
+                      title="Delete budget"
+                    >
+                      <Trash2 className="h-4 w-4" />
                     </button>
                   </div>
                 </div>

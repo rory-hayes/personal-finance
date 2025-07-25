@@ -441,16 +441,18 @@ export const useFinanceData = () => {
       };
 
       setTransactions(prev => [newTransaction, ...prev]);
+      await linkExpenseToBudget(newTransaction);
       await updateMonthlySummary();
     } catch (error) {
       console.error('Error adding transaction:', error);
     }
-  }, [user]);
+  }, [user, linkExpenseToBudget]);
 
   const updateTransaction = useCallback(async (id: string, updates: Partial<Transaction>) => {
     if (!user) return;
 
     try {
+      const existing = transactions.find(t => t.id === id);
       const { error } = await supabase
         .from('transactions')
         .update({
@@ -464,12 +466,17 @@ export const useFinanceData = () => {
       if (error) throw error;
 
       // Update local state
-      setTransactions(prev => prev.map(transaction => 
+      setTransactions(prev => prev.map(transaction =>
         transaction.id === id ? { ...transaction, ...updates } : transaction
       ));
 
       // Reload data to ensure consistency and update monthly summary
       await loadTransactions();
+      if (existing) {
+        await adjustBudgetSpent(existing, -Math.abs(existing.amount));
+        const updated: Transaction = { ...existing, ...updates } as Transaction;
+        await linkExpenseToBudget(updated);
+      }
       await updateMonthlySummary();
 
       console.log('Transaction updated successfully:', id);
@@ -477,12 +484,13 @@ export const useFinanceData = () => {
       console.error('Error updating transaction:', error);
       throw error; // Re-throw so UI can handle the error
     }
-  }, [user]);
+  }, [user, transactions, adjustBudgetSpent, linkExpenseToBudget]);
 
   const deleteTransaction = useCallback(async (id: string) => {
     if (!user) return;
 
     try {
+      const existing = transactions.find(t => t.id === id);
       const { error } = await supabase
         .from('transactions')
         .delete()
@@ -494,6 +502,9 @@ export const useFinanceData = () => {
       setTransactions(prev => prev.filter(transaction => transaction.id !== id));
 
       // Update monthly summary since transactions changed
+      if (existing) {
+        await adjustBudgetSpent(existing, -Math.abs(existing.amount));
+      }
       await updateMonthlySummary();
 
       console.log('Transaction deleted successfully:', id);
@@ -501,7 +512,7 @@ export const useFinanceData = () => {
       console.error('Error deleting transaction:', error);
       throw error; // Re-throw so UI can handle the error
     }
-  }, [user]);
+  }, [user, transactions, adjustBudgetSpent]);
 
   const addUser = useCallback(async (newUser: Omit<User, 'id'>) => {
     if (!user) return;
@@ -930,6 +941,34 @@ export const useFinanceData = () => {
     localStorage.setItem('financeApp_monthlyAllocations', JSON.stringify(updatedAllocations));
   }, [user, monthlyAllocations]);
 
+  /** Adjust a budget category's spent amount by a delta. */
+  const adjustBudgetSpent = useCallback(
+    async (expense: Transaction, delta: number) => {
+      if (!user) return;
+      try {
+        const monthKey = expense.date.substring(0, 7) + '-01';
+        const budget = budgets.find(
+          (b) => b.userId === expense.userId && b.month === monthKey,
+        );
+        if (!budget) return;
+        const categoryRecord = budgetCategories.find(
+          (bc) => bc.budgetId === budget.id && bc.category === expense.category,
+        );
+        if (!categoryRecord) return;
+        const newSpent = Math.max(categoryRecord.spentAmount + delta, 0);
+        const { error } = await supabase
+          .from('budget_categories')
+          .update({ spent_amount: newSpent })
+          .eq('id', categoryRecord.id);
+        if (error) throw error;
+        await loadBudgetCategories();
+      } catch (error) {
+        console.error('Error adjusting budget spent:', error);
+      }
+    },
+    [user, budgets, budgetCategories],
+  );
+
   /**
    * Link an individual expense to the current month's budget.  When an expense
    * is recorded, this helper locates the appropriate budget (if any) and
@@ -941,31 +980,12 @@ export const useFinanceData = () => {
     async (expense: Transaction) => {
       if (!user) return;
       try {
-        // Determine current month key (YYYY-MM-01)
-        const monthKey = expense.date.substring(0, 7) + '-01';
-        // Find the budget for the expense's user and month
-        const budget = budgets.find(
-          (b) => b.userId === expense.userId && b.month === monthKey,
-        );
-        if (!budget) return;
-        // Find the category record and update spent amount
-        const categoryRecord = budgetCategories.find(
-          (bc) => bc.budgetId === budget.id && bc.category === expense.category,
-        );
-        if (!categoryRecord) return;
-        const newSpent = categoryRecord.spentAmount + Math.abs(expense.amount);
-        const { error } = await supabase
-          .from('budget_categories')
-          .update({ spent_amount: newSpent })
-          .eq('id', categoryRecord.id);
-        if (error) throw error;
-        // Refresh local state
-        await loadBudgetCategories();
+        await adjustBudgetSpent(expense, Math.abs(expense.amount));
       } catch (error) {
         console.error('Error linking expense to budget:', error);
       }
     },
-    [user, budgets, budgetCategories],
+    [user, adjustBudgetSpent],
   );
 
   const createMonthlyBudget = useCallback(async (userId: string, month: string, totalAmount: number, categoryBreakdown: { category: string; allocatedAmount: number }[]) => {
@@ -1050,6 +1070,23 @@ export const useFinanceData = () => {
     },
     [user],
   );
+
+  const deleteBudget = useCallback(async (budgetId: string) => {
+    if (!user) return;
+    try {
+      const { error } = await supabase.from('budgets').delete().eq('id', budgetId);
+      if (error) throw error;
+      const { error: catError } = await supabase
+        .from('budget_categories')
+        .delete()
+        .eq('budget_id', budgetId);
+      if (catError) throw catError;
+      setBudgets((prev) => prev.filter((b) => b.id !== budgetId));
+      setBudgetCategories((prev) => prev.filter((c) => c.budgetId !== budgetId));
+    } catch (error) {
+      console.error('Error deleting budget:', error);
+    }
+  }, [user]);
 
   const assignMainAccount = useCallback(async (userId: string, accountId: string) => {
     if (!user) return;
@@ -1286,6 +1323,7 @@ export const useFinanceData = () => {
     deleteRecurringExpense,
     // Budget editing helper
     updateBudget,
+    deleteBudget,
     // Automatically link expenses to budgets
     linkExpenseToBudget,
     createMonthlyBudget,
