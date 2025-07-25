@@ -1,5 +1,6 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { Upload as UploadIcon, FileText, AlertCircle, CheckCircle, X, Plus, Calendar, DollarSign, Receipt, History, Edit3, Trash2, Filter, Search, HelpCircle, Info, Repeat } from 'lucide-react';
+import RecurringExpensesManager from './RecurringExpensesManager';
 import { useFinanceData } from '../hooks/useFinanceData';
 import { parseCSV, parsePDF } from '../utils/fileParser';
 import TransactionReviewTable from './TransactionReviewTable';
@@ -417,6 +418,21 @@ const Expenses: React.FC = () => {
             <div>
               <h3 className="font-semibold text-gray-900">Recurring Expenses</h3>
               <p className="text-sm text-gray-600">Set up bills and regular costs</p>
+            </div>
+          </div>
+        </button>
+
+        <button
+          onClick={() => setShowRecurringManagement(true)}
+          className="bg-white rounded-xl p-6 shadow-sm border border-gray-200 hover:border-green-300 hover:shadow-md transition-all text-left"
+        >
+          <div className="flex items-center gap-4">
+            <div className="p-3 bg-green-100 rounded-lg">
+              <Repeat className="h-6 w-6 text-green-600" />
+            </div>
+            <div>
+              <h3 className="font-semibold text-gray-900">Manage Recurring</h3>
+              <p className="text-sm text-gray-600">Edit or cancel scheduled expenses</p>
             </div>
           </div>
         </button>
@@ -1132,6 +1148,19 @@ const Expenses: React.FC = () => {
                 </button>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {showRecurringManagement && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-end p-4">
+              <button onClick={() => setShowRecurringManagement(false)} className="text-gray-400 hover:text-gray-600">
+                <X className="h-6 w-6" />
+              </button>
+            </div>
+            <RecurringExpensesManager />
           </div>
         </div>
       )}
