@@ -75,7 +75,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, onTabChange }) => 
           <div className="flex flex-1 flex-col overflow-y-auto pt-5 pb-4">
             <div className="flex flex-shrink-0 items-center px-4">
               <BarChart3 className="h-8 w-8 text-blue-600" />
-              <span className="ml-2 text-xl font-bold text-gray-900">BudgetTracker</span>
+              <span className="ml-2 text-xl font-bold text-gray-900">Nudge</span>
             </div>
             
             {/* User Profile */}
@@ -123,7 +123,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, onTabChange }) => 
         <div className="flex items-center justify-between bg-white px-4 py-3 border-b border-gray-200">
           <div className="flex items-center">
             <BarChart3 className="h-7 w-7 text-blue-600" />
-            <span className="ml-2 text-lg font-bold text-gray-900">BudgetTracker</span>
+            <span className="ml-2 text-lg font-bold text-gray-900">Nudge</span>
           </div>
           
           <div className="flex items-center gap-3">

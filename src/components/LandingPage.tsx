@@ -53,14 +53,13 @@ const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
     }
   ];
 
-  const benefits = [
-    'Complete financial visibility in one dashboard',
-    'Automated expense categorization and insights',
-    'Multi-user household budget management',
-    'Real-time goal tracking and progress alerts',
-    'Secure bank-level encryption for all data',
-    'Mobile-responsive design for on-the-go access'
-  ];
+    const benefits = [
+      'Complete financial visibility in one dashboard',
+      'Automated expense categorization and insights',
+      'Multi-user household budget management',
+      'Real-time goal tracking and progress alerts',
+      'Mobile-responsive design for on-the-go access'
+    ];
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50">
@@ -70,7 +69,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
           <div className="flex justify-between items-center py-4">
             <div className="flex items-center">
               <BarChart3 className="h-8 w-8 text-blue-600" />
-              <span className="ml-2 text-xl font-bold text-gray-900">BudgetTracker</span>
+              <span className="ml-2 text-xl font-bold text-gray-900">Nudge</span>
             </div>
             <button
               onClick={onGetStarted}
@@ -102,9 +101,6 @@ const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
               Start Your Financial Journey
               <ArrowRight className="h-5 w-5" />
             </button>
-            <button className="border-2 border-gray-300 hover:border-gray-400 text-gray-700 px-8 py-4 rounded-lg font-semibold text-lg transition-colors">
-              Watch Demo
-            </button>
           </div>
 
           {/* Quick Stats */}
@@ -133,7 +129,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
               Everything You Need to Manage Your Money
             </h2>
             <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-              From daily expenses to long-term investments, BudgetTracker provides 
+              From daily expenses to long-term investments, Nudge provides
               comprehensive tools for every aspect of your financial life.
             </p>
           </div>
@@ -223,10 +219,10 @@ const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
             <div>
               <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-6">
-                Why Choose BudgetTracker?
+                Why Choose Nudge?
               </h2>
               <p className="text-lg text-gray-600 mb-8">
-                Built by financial experts for real people, BudgetTracker combines 
+                Built by financial experts for real people, Nudge combines
                 powerful analytics with simple, intuitive design.
               </p>
               
@@ -246,17 +242,13 @@ const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
                 <p className="text-blue-100 mb-6">
                   Join thousands of users who have taken control of their financial future.
                 </p>
-                <div className="space-y-3">
-                  <div className="flex items-center gap-3">
-                    <Shield className="h-5 w-5 text-blue-200" />
-                    <span className="text-sm">Bank-level security</span>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <Smartphone className="h-5 w-5 text-blue-200" />
-                    <span className="text-sm">Works on all devices</span>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <Users className="h-5 w-5 text-blue-200" />
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-3">
+                      <Smartphone className="h-5 w-5 text-blue-200" />
+                      <span className="text-sm">Works on all devices</span>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <Users className="h-5 w-5 text-blue-200" />
                     <span className="text-sm">Multi-user support</span>
                   </div>
                 </div>
@@ -291,10 +283,10 @@ const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
           <div className="flex flex-col md:flex-row justify-between items-center">
             <div className="flex items-center mb-4 md:mb-0">
               <BarChart3 className="h-8 w-8 text-blue-400" />
-              <span className="ml-2 text-xl font-bold">BudgetTracker</span>
+              <span className="ml-2 text-xl font-bold">Nudge</span>
             </div>
             <div className="text-gray-400 text-sm">
-              © 2024 BudgetTracker. Take control of your financial future.
+              © 2024 Nudge. Take control of your financial future.
             </div>
           </div>
         </div>

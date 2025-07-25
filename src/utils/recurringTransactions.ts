@@ -168,7 +168,7 @@ export const validateRecurringTransaction = (recurring: Partial<RecurringTransac
 /**
  * Local storage key for recurring transactions
  */
-const STORAGE_KEY = 'budgettracker_recurring_transactions';
+const STORAGE_KEY = 'nudge_recurring_transactions';
 
 /**
  * Save recurring transactions to local storage

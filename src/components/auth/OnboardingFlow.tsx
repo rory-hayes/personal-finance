@@ -31,7 +31,7 @@ const OnboardingFlow: React.FC = () => {
   const steps = [
     {
       id: 1,
-      title: 'Welcome to BudgetTracker',
+      title: 'Welcome to Nudge',
       subtitle: 'Let\'s set up your financial profile',
     },
     {
@@ -330,7 +330,7 @@ const OnboardingFlow: React.FC = () => {
       </div>
       
       <h2 className="text-2xl font-bold text-gray-900 mb-4">
-        Welcome to BudgetTracker, {profile?.full_name}!
+        Welcome to Nudge, {profile?.full_name}!
       </h2>
       
       <p className="text-gray-600 mb-8 max-w-md mx-auto">
