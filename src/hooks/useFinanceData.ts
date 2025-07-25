@@ -12,6 +12,9 @@ export const useFinanceData = () => {
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [budgets, setBudgets] = useState<Budget[]>([]);
   const [budgetCategories, setBudgetCategories] = useState<BudgetCategory[]>([]);
+  // Recurring expenses state.  Items represent recurring transactions such as rent, subscriptions, etc.
+  // Each item should include { id, description, amount, category, frequency, nextDue }.
+  const [recurringExpenses, setRecurringExpenses] = useState<any[]>([]);
   const [monthlyData, setMonthlyData] = useState<any[]>([]);
   const [vestingSchedules, setVestingSchedules] = useState<any[]>([]);
   const [monthlyAllocations, setMonthlyAllocations] = useState<any[]>([]);
@@ -41,7 +44,8 @@ export const useFinanceData = () => {
         loadBudgetCategories(),
         loadMonthlyData(),
         loadVestingSchedules(),
-        loadMonthlyAllocations()
+        loadMonthlyAllocations(),
+        loadRecurringExpenses()
       ]);
     } catch (error) {
       console.error('Error initializing data:', error);
@@ -347,10 +351,41 @@ export const useFinanceData = () => {
 
   const loadMonthlyAllocations = async () => {
     if (!user) return;
-    
+
     // Note: This table doesn't exist in Supabase yet, so we'll keep it empty
     // TODO: Create monthly_allocations table when needed
     setMonthlyAllocations([]);
+  };
+
+  const loadRecurringExpenses = async () => {
+    if (!user) return;
+    try {
+      const stored = localStorage.getItem('financeApp_recurringExpenses');
+      if (stored) {
+        setRecurringExpenses(JSON.parse(stored));
+      } else {
+        setRecurringExpenses([]);
+      }
+    } catch {
+      setRecurringExpenses([]);
+    }
+  };
+  const addRecurringExpense = async (expense: any) => {
+    const updated = [expense, ...recurringExpenses];
+    setRecurringExpenses(updated);
+    localStorage.setItem('financeApp_recurringExpenses', JSON.stringify(updated));
+  };
+  const updateRecurringExpense = async (id: string, updates: any) => {
+    const updated = recurringExpenses.map((exp) =>
+      exp.id === id ? { ...exp, ...updates } : exp
+    );
+    setRecurringExpenses(updated);
+    localStorage.setItem('financeApp_recurringExpenses', JSON.stringify(updated));
+  };
+  const deleteRecurringExpense = async (id: string) => {
+    const updated = recurringExpenses.filter((exp) => exp.id !== id);
+    setRecurringExpenses(updated);
+    localStorage.setItem('financeApp_recurringExpenses', JSON.stringify(updated));
   };
 
   const updateUserIncome = useCallback(async (userId: string, income: number) => {
@@ -778,20 +813,39 @@ export const useFinanceData = () => {
     }
   }, [user]);
 
-  const allocateToAccount = useCallback(async (accountId: string, amount: number, description?: string) => {
-    if (!user) return;
+  const allocateToAccount = useCallback(
+    async (accountId: string, amount: number, description?: string) => {
+      if (!user) return;
 
-    try {
-      const { error } = await supabase
-        .from('accounts')
-        .update({ balance: `balance + ${amount}` })
-        .eq('id', accountId);
+      try {
+        // look up the current balance from local state
+        const target = accounts.find((acc) => acc.id === accountId);
+        const currentBalance = target ? target.balance : 0;
+        const newBalance = currentBalance + amount;
 
-      if (error) throw error;
-    } catch (error) {
-      console.error('Error allocating to account:', error);
-    }
-  }, [user]);
+        // Persist the updated balance to Supabase.  Because Supabase does not
+        // support arithmetic expressions via the `.update()` helper, compute
+        // the new balance in JavaScript and send the resulting value.
+        const { error } = await supabase
+          .from('accounts')
+          .update({ balance: newBalance })
+          .eq('id', accountId);
+
+        if (error) throw error;
+
+        // Update local state immediately so the UI reflects the change without
+        // requiring a full reload.
+        setAccounts((prev) =>
+          prev.map((acc) =>
+            acc.id === accountId ? { ...acc, balance: newBalance } : acc
+          )
+        );
+      } catch (error) {
+        console.error('Error allocating to account:', error);
+      }
+    },
+    [user, accounts]
+  );
 
   const addVestingSchedule = useCallback(async (schedule: any) => {
     if (!user) return;
@@ -868,6 +922,44 @@ export const useFinanceData = () => {
     localStorage.setItem('financeApp_monthlyAllocations', JSON.stringify(updatedAllocations));
   }, [user, monthlyAllocations]);
 
+  /**
+   * Link an individual expense to the current month's budget.  When an expense
+   * is recorded, this helper locates the appropriate budget (if any) and
+   * increments the spent amount for the matching category.  If no budget or
+   * category record exists, the function silently returns.  Expenses with
+   * unknown categories will not impact budgets.
+   */
+  const linkExpenseToBudget = useCallback(
+    async (expense: Transaction) => {
+      if (!user) return;
+      try {
+        // Determine current month key (YYYY-MM-01)
+        const monthKey = expense.date.substring(0, 7) + '-01';
+        // Find the budget for the expense's user and month
+        const budget = budgets.find(
+          (b) => b.userId === expense.userId && b.month === monthKey,
+        );
+        if (!budget) return;
+        // Find the category record and update spent amount
+        const categoryRecord = budgetCategories.find(
+          (bc) => bc.budgetId === budget.id && bc.category === expense.category,
+        );
+        if (!categoryRecord) return;
+        const newSpent = categoryRecord.spentAmount + Math.abs(expense.amount);
+        const { error } = await supabase
+          .from('budget_categories')
+          .update({ spent_amount: newSpent })
+          .eq('id', categoryRecord.id);
+        if (error) throw error;
+        // Refresh local state
+        await loadBudgetCategories();
+      } catch (error) {
+        console.error('Error linking expense to budget:', error);
+      }
+    },
+    [user, budgets, budgetCategories],
+  );
+
   const createMonthlyBudget = useCallback(async (userId: string, month: string, totalAmount: number, categoryBreakdown: { category: string; allocatedAmount: number }[]) => {
     if (!user) return;
 
@@ -911,6 +1003,45 @@ export const useFinanceData = () => {
       console.error('Error creating monthly budget:', error);
     }
   }, [user]);
+
+  /**
+   * Update an existing monthly budget.  This helper allows editing of the total budget and
+   * reallocation of category amounts.  Categories are upserted so that existing categories are
+   * updated and new categories are created.  Removed categories will retain their spent amounts
+   * but will not be updated unless explicitly provided.
+   */
+  const updateBudget = useCallback(
+    async (
+      budgetId: string,
+      totalAmount: number,
+      categoryBreakdown: { category: string; allocatedAmount: number }[],
+    ) => {
+      if (!user) return;
+      try {
+        const { error: budgetError } = await supabase
+          .from('budgets')
+          .update({ total_budget: totalAmount })
+          .eq('id', budgetId);
+        if (budgetError) throw budgetError;
+        const categoryInserts = categoryBreakdown.map((cat) => ({
+          budget_id: budgetId,
+          category: cat.category,
+          allocated_amount: cat.allocatedAmount,
+        }));
+        const { error: categoriesError } = await supabase
+          .from('budget_categories')
+          .upsert(categoryInserts, {
+            onConflict: 'budget_id,category',
+          });
+        if (categoriesError) throw categoriesError;
+        await loadBudgets();
+        await loadBudgetCategories();
+      } catch (error) {
+        console.error('Error updating budget:', error);
+      }
+    },
+    [user],
+  );
 
   const assignMainAccount = useCallback(async (userId: string, accountId: string) => {
     if (!user) return;
@@ -1139,6 +1270,16 @@ export const useFinanceData = () => {
     addVestingSchedule,
     deleteVestingSchedule,
     addMonthlyAllocation,
+    // Recurring expenses helpers
+    recurringExpenses,
+    loadRecurringExpenses,
+    addRecurringExpense,
+    updateRecurringExpense,
+    deleteRecurringExpense,
+    // Budget editing helper
+    updateBudget,
+    // Automatically link expenses to budgets
+    linkExpenseToBudget,
     createMonthlyBudget,
     assignMainAccount,
     allocateMonthlyBudget,
