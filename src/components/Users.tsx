@@ -5,13 +5,15 @@ import { User as UserType, Account } from '../types';
 import { showToast } from '../utils/toast';
 
 const Users: React.FC = () => {
-  const { users, addUser, updateUserIncome, totalIncome, accounts, addAccount, updateAccount, deleteAccount, totalAccountBalance, allocateToAccount } = useFinanceData();
+  const { users, addUser, updateUserIncome, updateUser, deleteUser, totalIncome, accounts, addAccount, updateAccount, deleteAccount, totalAccountBalance, allocateToAccount } = useFinanceData();
   const [showAddForm, setShowAddForm] = useState(false);
   const [showAccountForm, setShowAccountForm] = useState(false);
   const [showAllocationModal, setShowAllocationModal] = useState(false);
   const [selectedAccount, setSelectedAccount] = useState<Account | null>(null);
   const [editingUser, setEditingUser] = useState<string | null>(null);
   const [editingIncome, setEditingIncome] = useState('');
+  const [editingNameUser, setEditingNameUser] = useState<string | null>(null);
+  const [newName, setNewName] = useState('');
   const [formData, setFormData] = useState({
     name: '',
     monthlyIncome: '',
@@ -31,6 +33,7 @@ const Users: React.FC = () => {
   // Confirmation modal state
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [itemToDelete, setItemToDelete] = useState<{type: 'account' | 'user', id: string, name: string} | null>(null);
+  const [transferTarget, setTransferTarget] = useState<string>('');
 
   // Handle Esc key to close modals
   useEffect(() => {
@@ -230,6 +233,31 @@ const Users: React.FC = () => {
     setEditingIncome('');
   };
 
+  const handleEditName = (userId: string, currentName: string) => {
+    setEditingNameUser(userId);
+    setNewName(currentName);
+  };
+
+  const handleSaveName = async () => {
+    if (editingNameUser && newName.trim()) {
+      try {
+        await updateUser(editingNameUser, { name: newName.trim() });
+      } catch (e) {
+        console.error('Failed to update name', e);
+        alert('Failed to update name');
+        return;
+      }
+    }
+    setEditingNameUser(null);
+    setNewName('');
+  };
+
+  const handleDeleteUserClick = (id: string, name: string) => {
+    setItemToDelete({ type: 'user', id, name });
+    setTransferTarget(users.find(u => u.id !== id)?.id || '');
+    setShowDeleteConfirm(true);
+  };
+
   // Delete confirmation handlers
   const handleDeleteAccount = (accountId: string, accountName: string) => {
     setItemToDelete({ type: 'account', id: accountId, name: accountName });
@@ -243,10 +271,13 @@ const Users: React.FC = () => {
       if (itemToDelete.type === 'account') {
         await deleteAccount(itemToDelete.id);
         console.log('✅ Account deleted successfully');
+      } else {
+        await deleteUser(itemToDelete.id, transferTarget || undefined);
+        console.log('✅ User deleted successfully');
       }
-      // TODO: Add user deletion when that functionality is implemented
       setShowDeleteConfirm(false);
       setItemToDelete(null);
+      setTransferTarget('');
     } catch (error) {
       console.error('❌ Failed to delete:', error);
       alert(`Failed to delete ${itemToDelete.type}. Please try again.`);
@@ -256,6 +287,7 @@ const Users: React.FC = () => {
   const handleCancelDelete = () => {
     setShowDeleteConfirm(false);
     setItemToDelete(null);
+    setTransferTarget('');
   };
 
   // Filter out duplicate users and ensure only one primary user
@@ -688,14 +720,25 @@ const Users: React.FC = () => {
                     <User className="h-6 w-6" />
                   </div>
                   <div>
-                    <h3 className="text-lg font-semibold text-gray-900">
-                      {user.name}
-                      {user.isPrimary && (
-                        <span className="ml-2 px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded-full">
-                          Primary
-                        </span>
-                      )}
-                    </h3>
+                    {editingNameUser === user.id ? (
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="text"
+                          value={newName}
+                          onChange={e => setNewName(e.target.value)}
+                          className="border rounded px-2 py-1"
+                        />
+                        <button onClick={handleSaveName} className="text-green-600">✓</button>
+                        <button onClick={() => {setEditingNameUser(null);setNewName('');}} className="text-red-600">✕</button>
+                      </div>
+                    ) : (
+                      <h3 className="text-lg font-semibold text-gray-900">
+                        {user.name}
+                        {user.isPrimary && (
+                          <span className="ml-2 px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded-full">Primary</span>
+                        )}
+                      </h3>
+                    )}
                     <p className="text-sm text-gray-600">
                       {incomePercentage.toFixed(1)}% of household income
                     </p>
@@ -736,13 +779,27 @@ const Users: React.FC = () => {
                   </div>
                   
                   {editingUser !== user.id && (
-                    <button 
+                    <button
                       onClick={() => handleEditIncome(user.id, user.monthlyIncome)}
                       className="p-2 text-gray-400 hover:text-blue-600 transition-colors"
                     >
                       <Edit3 className="h-4 w-4" />
                     </button>
                   )}
+                  {editingNameUser !== user.id && (
+                    <button
+                      onClick={() => handleEditName(user.id, user.name)}
+                      className="p-2 text-gray-400 hover:text-blue-600 transition-colors"
+                    >
+                      <Edit3 className="h-4 w-4" />
+                    </button>
+                  )}
+                  <button
+                    onClick={() => handleDeleteUserClick(user.id, user.name)}
+                    className="p-2 text-gray-400 hover:text-red-600 transition-colors"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
                 </div>
               </div>
 
@@ -834,12 +891,29 @@ const Users: React.FC = () => {
               </div>
               
               <p className="text-gray-600 mb-6">
-                Are you sure you want to delete <strong>"{itemToDelete.name}"</strong>? 
-                {itemToDelete.type === 'account' 
+                Are you sure you want to delete <strong>"{itemToDelete.name}"</strong>?
+                {itemToDelete.type === 'account'
                   ? ' This will permanently remove the account and all associated data.'
                   : ' This will permanently remove the household member and all associated data.'
                 }
               </p>
+
+              {itemToDelete.type === 'user' && users.length > 1 && (
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Transfer accounts to
+                  </label>
+                  <select
+                    value={transferTarget}
+                    onChange={e => setTransferTarget(e.target.value)}
+                    className="w-full border rounded px-3 py-2"
+                  >
+                    {users.filter(u => u.id !== itemToDelete.id).map(u => (
+                      <option key={u.id} value={u.id}>{u.name}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
               
               <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-6">
                 <p className="text-red-800 text-sm font-medium">⚠️ This action cannot be undone!</p>
