@@ -1,14 +1,17 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { CheckCircle, ArrowRight, ArrowLeft, Users, Euro, Wallet, User } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
+import { useFinanceData } from '../../hooks/useFinanceData';
 import { HouseholdMember } from '../../types';
 import { isSupabaseMock } from '../../lib/supabase';
 
 const OnboardingFlow: React.FC = () => {
   const { profile, completeOnboarding } = useAuth();
+  const { initializeData } = useFinanceData();
   const [currentStep, setCurrentStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [showDebugInfo, setShowDebugInfo] = useState(false);
+  const [prefilled, setPrefilled] = useState(false);
   /**
    * Initialise the onboarding form with sensible defaults.  Instead of always
    * starting with empty values, we attempt to hydrate the form with the
@@ -57,6 +60,25 @@ const OnboardingFlow: React.FC = () => {
     monthly_income: profile?.monthly_income?.toString() ?? '',
     accounts: initialAccounts,
   });
+
+  // When the profile loads after the first render, seed the form fields
+  useEffect(() => {
+    if (profile && !prefilled) {
+      setFormData(prev => ({
+        household_size: profile.household_size ?? prev.household_size,
+        household_members:
+          prev.household_members.length > 0 && prev.household_members.some(m => m.name.trim())
+            ? prev.household_members
+            : initialMembers,
+        monthly_income:
+          prev.monthly_income !== ''
+            ? prev.monthly_income
+            : profile.monthly_income?.toString() ?? '',
+        accounts: prev.accounts.length ? prev.accounts : initialAccounts,
+      }));
+      setPrefilled(true);
+    }
+  }, [profile]);
 
   // Validation state
   const [validationErrors, setValidationErrors] = useState<{
@@ -320,6 +342,11 @@ const OnboardingFlow: React.FC = () => {
         // Success - the AuthContext will handle navigation via profile update
         // Force a small delay to ensure state updates
         await new Promise(resolve => setTimeout(resolve, 1000));
+        try {
+          await initializeData();
+        } catch (e) {
+          console.error('Error reloading data after onboarding:', e);
+        }
       }
     } catch (error: unknown) {
       console.error('💥 Error in handleComplete:', error);
