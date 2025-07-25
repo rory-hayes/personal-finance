@@ -9,14 +9,53 @@ const OnboardingFlow: React.FC = () => {
   const [currentStep, setCurrentStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [showDebugInfo, setShowDebugInfo] = useState(false);
+  /**
+   * Initialise the onboarding form with sensible defaults.  Instead of always
+   * starting with empty values, we attempt to hydrate the form with the
+   * existing user profile (if available) or with common defaults.  This
+   * prevents the user from having to re-enter data that was previously
+   * captured during onboarding.  For example, if the profile already
+   * contains a monthly income or a list of accounts, those values will be
+   * prefilled.  Otherwise we fall back to generic labels (e.g. "Checking
+   * Account", "Savings Account").  Note that balances are converted to
+   * strings here because the input fields operate on strings.
+   */
+  const initialHouseholdSize = profile?.household_size ?? 1;
+  const initialMembers: HouseholdMember[] =
+    profile?.household_members?.length
+      ? profile.household_members.map((member, idx) => ({
+          // if the member's name is missing, default to the profile full name
+          name: member.name || (idx === 0 ? profile.full_name ?? '' : ''),
+          isMain: idx === 0,
+        }))
+      : [
+          {
+            name: profile?.full_name || '',
+            isMain: true,
+          },
+        ];
+
+  // Build initial accounts from the existing profile.  When the profile
+  // contains accounts, we map them into the expected shape and convert
+  // balances to strings.  If no accounts are found, we prefill two rows
+  // with friendly labels so that the validation step passes without
+  // requiring the user to manually type the same values again.
+  const initialAccounts = (profile as any)?.accounts?.length
+    ? (profile as any).accounts.map((acc: any) => ({
+        name: acc.name,
+        type: acc.type || 'checking',
+        balance: acc.balance?.toString() || '',
+      }))
+    : [
+        { name: 'Main Checking Account', type: 'checking', balance: '' },
+        { name: 'Main Savings Account', type: 'savings', balance: '' },
+      ];
+
   const [formData, setFormData] = useState({
-    household_size: 1,
-    household_members: [{ name: '', isMain: true }] as HouseholdMember[], // Array of household member names
-    monthly_income: '',
-    accounts: [
-      { name: '', type: 'checking', balance: '' },
-      { name: '', type: 'savings', balance: '' }
-    ]
+    household_size: initialHouseholdSize,
+    household_members: initialMembers,
+    monthly_income: profile?.monthly_income?.toString() ?? '',
+    accounts: initialAccounts,
   });
 
   // Validation state
@@ -77,9 +116,12 @@ const OnboardingFlow: React.FC = () => {
       error = 'Monthly income is required';
     } else if (isNaN(monthlyIncome) || monthlyIncome < 0) {
       error = 'Please enter a valid positive number';
-    } else if (monthlyIncome === 0) {
-      error = 'Monthly income must be greater than 0';
     }
+
+    // Remove the zero-income check – a user should be able to continue if a
+    // default value of 0 is prefilled.  Validation for negative or NaN
+    // values remains above.  This prevents the form from erroneously
+    // requiring the user to manually retype a prefilled 0 value.
     
     setValidationErrors(prev => ({ ...prev, monthly_income: error }));
     return !error;
@@ -97,16 +139,17 @@ const OnboardingFlow: React.FC = () => {
         hasErrors = true;
       }
       
-      if (!account.balance.trim()) {
-        errors.balance = 'Balance is required';
+    // Only validate the balance field when the user has interacted with it.
+    // Prefilled empty strings should be accepted – the account will start
+    // with a zero balance by default.  This avoids forcing the user to
+    // re-enter the same values during onboarding.
+    if (account.balance.trim()) {
+      const balance = parseFloat(account.balance);
+      if (isNaN(balance) || balance < 0) {
+        errors.balance = 'Please enter a valid positive number';
         hasErrors = true;
-      } else {
-        const balance = parseFloat(account.balance);
-        if (isNaN(balance) || balance < 0) {
-          errors.balance = 'Please enter a valid positive number';
-          hasErrors = true;
-        }
       }
+    }
       
       accountErrors[index] = errors;
     });
