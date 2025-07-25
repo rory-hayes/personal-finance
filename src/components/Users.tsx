@@ -164,7 +164,14 @@ const Users: React.FC = () => {
       return;
     }
 
-    allocateToAccount(selectedAccount.id, amount, allocationData.description);
+    const lumpSum = parseFloat(allocationData.cliffAmount);
+
+    allocateToAccount(
+      selectedAccount.id,
+      amount,
+      allocationData.description,
+      isNaN(lumpSum) ? undefined : lumpSum,
+    );
     
     setAllocationData({ amount: '', description: '', cliffAmount: '', cliffPeriod: '6' });
     setSelectedAccount(null);
