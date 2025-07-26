@@ -51,11 +51,14 @@ const Budget: React.FC = () => {
   const [feedbackMessage, setFeedbackMessage] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
   // Calculate running totals for real-time feedback
-  const totalBudget = parseFloat(budgetFormData.totalBudget) || 0;
+  const totalBudget = budgetFormData.totalBudget.trim() === '' ? 0 : (parseFloat(budgetFormData.totalBudget) || 0);
   const categoryTotal = Object.values(budgetFormData.categories)
-    .reduce((sum, amount) => sum + (parseFloat(amount) || 0), 0);
+    .reduce((sum, amount) => {
+      const value = typeof amount === 'string' && amount.trim() === '' ? 0 : (parseFloat(amount) || 0);
+      return sum + value;
+    }, 0);
   const remainingBudget = totalBudget - categoryTotal;
-  const isOverBudget = categoryTotal > totalBudget;
+  const isOverBudget = categoryTotal > totalBudget && totalBudget > 0;
 
   const expenseCategories = [
     'Groceries', 'Dining', 'Transportation', 'Utilities', 'Housing', 

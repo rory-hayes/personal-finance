@@ -89,8 +89,25 @@ const Settings: React.FC = () => {
 
   const handleResetPassword = async () => {
     if (!formData.email) return;
-    await supabase.auth.resetPasswordForEmail(formData.email);
-    alert('Password reset email sent if the address exists.');
+    
+    const confirmReset = confirm(
+      `Are you sure you want to reset your password?\n\nA password reset link will be sent to:\n${formData.email}\n\nYou will need to use this link to set a new password.`
+    );
+    
+    if (!confirmReset) return;
+    
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(formData.email);
+      
+      if (error) {
+        alert(`Failed to send password reset email: ${error.message}`);
+      } else {
+        alert(`✅ Password reset email sent!\n\nPlease check your inbox at ${formData.email} for instructions to reset your password.`);
+      }
+    } catch (error) {
+      console.error('Error sending password reset:', error);
+      alert('An error occurred while sending the password reset email. Please try again.');
+    }
   };
 
   return (

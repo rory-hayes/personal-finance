@@ -58,6 +58,34 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   // Hoist loadUserProfile so it can be safely called before its definition
+  // Function to force load from database without cache
+  async function loadUserProfileFromDatabase(userId: string) {
+    try {
+      console.log('🔄 Force loading profile from database for:', userId);
+      
+      const { data, error } = await supabase
+        .from('user_profiles')
+        .select('*')
+        .eq('id', userId)
+        .single();
+
+      if (error) {
+        console.error('❌ Failed to load profile from database:', error);
+        throw error;
+      }
+
+      if (data) {
+        console.log('✅ Profile loaded from database:', data);
+        setProfile(data);
+        // Update localStorage with fresh data
+        localStorage.setItem(`userProfile_${userId}`, JSON.stringify(data));
+      }
+    } catch (error) {
+      console.error('💥 Exception in loadUserProfileFromDatabase:', error);
+      throw error;
+    }
+  }
+
   async function loadUserProfile(userId: string, currentUser?: User) {
     try {
       console.log('🔍 Loading user profile for:', userId);
@@ -372,20 +400,32 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
 
     try {
+      console.log('💾 Updating profile with:', updates);
+      
       const { error } = await supabase
         .from('user_profiles')
-        .update(updates)
+        .update({
+          ...updates,
+          updated_at: new Date().toISOString()
+        })
         .eq('id', user.id);
 
       if (error) {
+        console.error('❌ Profile update failed:', error);
         return { error };
       }
 
-      // Reload profile after update
-      await loadUserProfile(user.id);
+      console.log('✅ Profile updated in database, clearing cache and reloading...');
+      
+      // Clear localStorage cache to force fresh load
+      localStorage.removeItem(`userProfile_${user.id}`);
+      
+      // Force reload from database
+      await loadUserProfileFromDatabase(user.id);
       
       return { error: null };
     } catch (error) {
+      console.error('💥 Exception in updateProfile:', error);
       return { error };
     }
   };
