@@ -64,7 +64,7 @@ const Expenses: React.FC = () => {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [expenseToDelete, setExpenseToDelete] = useState<Transaction | null>(null);
   
-  const { addTransaction, updateTransaction, deleteTransaction, transactions, users } = useFinanceData();
+  const { addTransaction, updateTransaction, deleteTransaction, transactions, users, addRecurringExpense } = useFinanceData();
 
   // Set up recurring transaction processor
   useEffect(() => {
@@ -239,7 +239,7 @@ const Expenses: React.FC = () => {
     setShowManualForm(false);
   };
 
-  const handleRecurringSubmit = (e: React.FormEvent) => {
+  const handleRecurringSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     // Comprehensive validation for recurring expenses
@@ -273,42 +273,36 @@ const Expenses: React.FC = () => {
       return;
     }
 
-    // Create recurring transaction
-    const newRecurring: RecurringTransaction = {
-      id: `recurring-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-      template: {
+    try {
+      // Create recurring expense using the same system as the management list
+      const newRecurringExpense = {
+        id: `recurring-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
         description: recurringExpense.description.trim(),
-        amount: -amount, // Make it negative for expense
+        amount: amount, // Store as positive amount
         category: recurringExpense.category,
-        userId: users[0]?.id || 'anonymous',
-      },
-      frequency: recurringExpense.frequency as 'weekly' | 'monthly' | 'quarterly' | 'yearly',
-      startDate: recurringExpense.startDate,
-      endDate: recurringExpense.endDate || undefined,
-      isActive: true,
-      nextDueDate: getNextDueDate({
-        frequency: recurringExpense.frequency as any,
-        startDate: recurringExpense.startDate,
-        lastProcessed: undefined,
-      } as any)
-    };
+        frequency: recurringExpense.frequency,
+        nextDue: recurringExpense.startDate,
+        active: true,
+      };
 
-    // Add to recurring transactions
-    const updatedRecurring = [...recurringTransactions, newRecurring];
-    setRecurringTransactions(updatedRecurring);
-    saveRecurringTransactions(updatedRecurring);
+      // Use the useFinanceData hook's function to ensure consistency
+      await addRecurringExpense(newRecurringExpense);
 
-    showToast.success(`Recurring ${recurringExpense.frequency} expense created: ${recurringExpense.description}`);
+      showToast.success(`Recurring ${recurringExpense.frequency} expense created: ${recurringExpense.description}`);
 
-    setRecurringExpense({
-      description: '',
-      amount: '',
-      category: 'Bills',
-      frequency: 'monthly',
-      startDate: getTodayDateString(),
-      endDate: '',
-    });
-    setShowRecurringForm(false);
+      setRecurringExpense({
+        description: '',
+        amount: '',
+        category: 'Bills',
+        frequency: 'monthly',
+        startDate: getTodayDateString(),
+        endDate: '',
+      });
+      setShowRecurringForm(false);
+    } catch (error) {
+      console.error('Error saving recurring expense:', error);
+      showToast.error('Failed to save recurring expense. Please try again.');
+    }
   };
 
   const handleApproveTransactions = async (approvedTransactions: Transaction[]) => {
@@ -437,17 +431,7 @@ const Expenses: React.FC = () => {
           </div>
         </button>
 
-        <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
-          <div className="flex items-center gap-4">
-            <div className="p-3 bg-purple-100 rounded-lg">
-              <Receipt className="h-6 w-6 text-purple-600" />
-            </div>
-            <div>
-              <h3 className="font-semibold text-gray-900">Upload Documents</h3>
-              <p className="text-sm text-gray-600">Import from bank statements</p>
-            </div>
-          </div>
-        </div>
+
 
         <button
           onClick={() => setShowExpenseHistory(!showExpenseHistory)}

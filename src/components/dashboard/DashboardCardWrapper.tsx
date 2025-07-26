@@ -238,9 +238,10 @@ const DashboardCardWrapper: React.FC<DashboardCardWrapperProps> = ({
             <button
               ref={buttonRef}
               onClick={() => setShowMenu(!showMenu)}
-              className="p-1 text-gray-400 hover:text-gray-600 transition-colors"
+              className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-md transition-colors min-w-[40px] min-h-[40px] flex items-center justify-center"
+              title="Card options"
             >
-              <MoreVertical className="h-4 w-4" />
+              <MoreVertical className="h-5 w-5" />
             </button>
             
             {showMenu && (

@@ -71,10 +71,35 @@ export const useFinanceData = () => {
       }
 
       if (existingUser) {
+        // Always sync monthly income from profile to ensure consistency
+        let finalMonthlyIncome = existingUser.monthly_income;
+        let finalName = existingUser.name;
+        
+        if (profile) {
+          // If profile has different monthly income, update the users table
+          if (profile.monthly_income !== existingUser.monthly_income || profile.full_name !== existingUser.name) {
+            console.log('🔄 Syncing user data from profile to users table');
+            const { error: updateError } = await supabase
+              .from('users')
+              .update({
+                monthly_income: profile.monthly_income,
+                name: profile.full_name
+              })
+              .eq('auth_user_id', user.id);
+
+            if (updateError) {
+              console.error('Error syncing user data:', updateError);
+            } else {
+              finalMonthlyIncome = profile.monthly_income;
+              finalName = profile.full_name;
+            }
+          }
+        }
+
         setUsers([{
           id: existingUser.id,
-          name: existingUser.name,
-          monthlyIncome: existingUser.monthly_income,
+          name: finalName,
+          monthlyIncome: finalMonthlyIncome,
           color: existingUser.color
         }]);
       } else if (profile) {

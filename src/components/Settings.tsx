@@ -5,7 +5,7 @@ import { supabase } from '../lib/supabase';
 
 const Settings: React.FC = () => {
   const { profile, user, updateProfile } = useAuth();
-  const { users, updateUserIncome } = useFinanceData();
+  const { users, updateUserIncome, initializeData } = useFinanceData();
   const [formData, setFormData] = useState({
     full_name: '',
     email: '',
@@ -13,9 +13,11 @@ const Settings: React.FC = () => {
     household_size: '',
   });
   const [loading, setLoading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
-    if (profile) {
+    // Only update form data if we're not currently saving to prevent reverting changes
+    if (profile && !isSaving) {
       setFormData({
         full_name: profile.full_name || '',
         email: profile.email,
@@ -23,7 +25,7 @@ const Settings: React.FC = () => {
         household_size: profile.household_size.toString(),
       });
     }
-  }, [profile]);
+  }, [profile, isSaving]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -33,19 +35,56 @@ const Settings: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return;
+    
     setLoading(true);
-    const monthlyIncome = parseFloat(formData.monthly_income) || 0;
-    const householdSize = parseInt(formData.household_size) || 1;
-    await updateProfile({
-      full_name: formData.full_name,
-      monthly_income: monthlyIncome,
-      household_size: householdSize,
-    });
-    const mainUser = users.find(u => u.id === user.id);
-    if (mainUser) {
-      try { await updateUserIncome(mainUser.id, monthlyIncome); } catch {}
+    setIsSaving(true);
+    
+    try {
+      const monthlyIncome = parseFloat(formData.monthly_income) || 0;
+      const householdSize = parseInt(formData.household_size) || 1;
+      
+      console.log('💾 Saving settings changes...');
+      
+      // Update profile first
+      const { error: profileError } = await updateProfile({
+        full_name: formData.full_name,
+        monthly_income: monthlyIncome,
+        household_size: householdSize,
+      });
+
+      if (profileError) {
+        console.error('Error updating profile:', profileError);
+        throw new Error('Failed to update profile: ' + (profileError.message || 'Unknown error'));
+      }
+
+      console.log('✅ Profile updated successfully');
+
+      // Update user income in finance system
+      const mainUser = users.find(u => u.id === user.id);
+      if (mainUser) {
+        try { 
+          await updateUserIncome(mainUser.id, monthlyIncome);
+          console.log('✅ User income updated successfully'); 
+        } catch (error) {
+          console.error('Error updating user income:', error);
+          // Don't fail the entire operation for this
+        }
+      }
+
+      // Reload all finance data to ensure consistency
+      await initializeData();
+      console.log('✅ Data reloaded successfully');
+      
+      alert('✅ Changes saved successfully! Your settings have been updated.');
+    } catch (error) {
+      console.error('Error saving changes:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      alert(`❌ Failed to save changes: ${errorMessage}\n\nPlease try again or contact support if the issue persists.`);
+    } finally {
+      setLoading(false);
+      // Delay clearing isSaving to ensure form doesn't revert
+      setTimeout(() => setIsSaving(false), 1000);
     }
-    setLoading(false);
   };
 
   const handleResetPassword = async () => {
@@ -101,9 +140,13 @@ const Settings: React.FC = () => {
         <button
           type="submit"
           disabled={loading}
-          className="px-4 py-2 bg-blue-600 text-white rounded"
+          className={`px-4 py-2 text-white rounded transition-colors ${
+            loading 
+              ? 'bg-gray-400 cursor-not-allowed' 
+              : 'bg-blue-600 hover:bg-blue-700'
+          }`}
         >
-          Save Changes
+          {loading ? 'Saving...' : 'Save Changes'}
         </button>
       </form>
       <button

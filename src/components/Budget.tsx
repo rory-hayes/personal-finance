@@ -2,9 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { Plus, Calculator, DollarSign, TrendingUp, AlertTriangle, CheckCircle, Edit3, Trash2, X } from 'lucide-react';
 import BudgetEditor from './BudgetEditor';
 import { useFinanceData } from '../hooks/useFinanceData';
+import { useAuth } from '../contexts/AuthContext';
 import { Budget as BudgetType, BudgetCategory } from '../types';
 
 const Budget: React.FC = () => {
+  const { user, profile } = useAuth();
   const { 
     users, 
     accounts, 
@@ -16,8 +18,19 @@ const Budget: React.FC = () => {
     assignMainAccount,
     allocateMonthlyBudget,
     getBudgetStatus,
-    totalIncome
+    totalIncome,
+    loading
   } = useFinanceData();
+
+  // Create a fallback user list that includes the current authenticated user
+  const availableUsers = users.length > 0 ? users : (
+    user && profile ? [{
+      id: user.id,
+      name: profile.full_name || user.email || 'Current User',
+      monthlyIncome: profile.monthly_income || 0,
+      color: '#3B82F6'
+    }] : []
+  );
 
   const [selectedMonth, setSelectedMonth] = useState(() => {
     const now = new Date();
@@ -107,7 +120,7 @@ const Budget: React.FC = () => {
       await createMonthlyBudget(budgetFormData.userId, `${selectedMonth}-01`, totalBudget, categoryBreakdown);
       
       // Success feedback
-      const userName = users.find(u => u.id === budgetFormData.userId)?.name || 'User';
+      const userName = availableUsers.find(u => u.id === budgetFormData.userId)?.name || 'User';
       setFeedbackMessage({ 
         type: 'success', 
         message: `Budget successfully created for ${userName} with €${totalBudget.toLocaleString()} total budget` 
@@ -272,7 +285,7 @@ const Budget: React.FC = () => {
 
       {/* Budget Overview Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {users.map((user) => {
+        {availableUsers.map((user) => {
           const budget = currentMonthBudgets.find(b => b.userId === user.id);
           const utilization = getBudgetUtilization(user.id);
           const mainAccount = accounts.find(a => a.userId === user.id && a.type === 'main');
@@ -422,17 +435,17 @@ const Budget: React.FC = () => {
                     required
                   >
                     <option value="">Select User</option>
-                    {users.length > 0 ? (
-                      users.map(user => (
+                    {availableUsers.length > 0 ? (
+                      availableUsers.map(user => (
                         <option key={user.id} value={user.id}>{user.name}</option>
                       ))
                     ) : (
-                      <option value="" disabled>No users found - Please add household members first</option>
+                      <option value="" disabled>Loading users...</option>
                     )}
                   </select>
-                  {users.length === 0 && (
+                  {!loading && availableUsers.length === 0 && (
                     <p className="text-sm text-red-600 mt-1">
-                      ⚠️ No household members found. Please add users in the Household section first.
+                      ⚠️ No household members found. Please complete your profile setup first.
                     </p>
                   )}
                 </div>

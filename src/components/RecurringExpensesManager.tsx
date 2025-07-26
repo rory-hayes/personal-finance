@@ -78,14 +78,18 @@ const RecurringExpensesManager: React.FC = () => {
 
   const handleEdit = (id: string) => {
     const exp = recurringExpenses.find((e) => e.id === id);
-    if (!exp) return;
+    if (!exp) {
+      console.error('Expense not found for editing:', id);
+      alert('Error: Could not find expense to edit. Please refresh and try again.');
+      return;
+    }
     setEditingId(id);
     setFormData({
-      description: exp.description,
-      amount: exp.amount.toString(),
-      category: exp.category,
-      frequency: exp.frequency,
-      nextDue: exp.nextDue,
+      description: exp.description || '',
+      amount: exp.amount?.toString() || '',
+      category: exp.category || '',
+      frequency: exp.frequency || 'monthly',
+      nextDue: exp.nextDue || '',
       active: exp.active !== false,
     });
     setShowForm(true);
