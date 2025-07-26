@@ -388,6 +388,90 @@ export const useFinanceData = () => {
     localStorage.setItem('financeApp_recurringExpenses', JSON.stringify(updated));
   };
 
+  /** Adjust a budget category's spent amount by a delta. */
+  const adjustBudgetSpent = useCallback(
+    async (expense: Transaction, delta: number) => {
+      if (!user) return;
+      try {
+        const monthKey = expense.date.substring(0, 7) + '-01';
+        const budget = budgets.find(
+          (b) => b.userId === expense.userId && b.month === monthKey,
+        );
+        if (!budget) return;
+        const categoryRecord = budgetCategories.find(
+          (bc) => bc.budgetId === budget.id && bc.category === expense.category,
+        );
+        if (!categoryRecord) return;
+        const newSpent = Math.max(categoryRecord.spentAmount + delta, 0);
+        const { error } = await supabase
+          .from('budget_categories')
+          .update({ spent_amount: newSpent })
+          .eq('id', categoryRecord.id);
+        if (error) throw error;
+        await loadBudgetCategories();
+      } catch (error) {
+        console.error('Error adjusting budget spent:', error);
+      }
+    },
+    [user, budgets, budgetCategories],
+  );
+
+  /**
+   * Link an individual expense to the current month's budget.  When an expense
+   * is recorded, this helper locates the appropriate budget (if any) and
+   * increments the spent amount for the matching category.  If no budget or
+   * category record exists, the function silently returns.  Expenses with
+   * unknown categories will not impact budgets.
+   */
+  const linkExpenseToBudget = useCallback(
+    async (expense: Transaction) => {
+      if (!user) return;
+      try {
+        await adjustBudgetSpent(expense, Math.abs(expense.amount));
+      } catch (error) {
+        console.error('Error linking expense to budget:', error);
+      }
+    },
+    [user, adjustBudgetSpent],
+  );
+
+  const updateMonthlySummary = useCallback(async () => {
+    if (!user) return;
+    
+    const currentMonth = new Date();
+    currentMonth.setDate(1); // First day of current month
+    const monthKey = currentMonth.toISOString().split('T')[0];
+
+    const currentMonthTransactions = transactions.filter(t => {
+      const transactionDate = new Date(t.date);
+      return transactionDate.getMonth() === currentMonth.getMonth() && 
+             transactionDate.getFullYear() === currentMonth.getFullYear();
+    });
+
+    const totalIncome = users.reduce((sum, user) => sum + user.monthlyIncome, 0);
+    const totalSpending = currentMonthTransactions
+      .filter(t => t.amount < 0)
+      .reduce((sum, t) => sum + Math.abs(t.amount), 0);
+    const totalSavings = totalIncome - totalSpending;
+    const netWorth = assets.reduce((sum, asset) => sum + asset.value, 0);
+
+    const { error } = await supabase
+      .from('monthly_summaries')
+      .upsert({
+        user_id: user.id,
+        month: monthKey,
+        total_income: totalIncome,
+        total_spending: totalSpending,
+        total_savings: totalSavings,
+        net_worth: netWorth
+      }, {
+        onConflict: 'user_id,month'
+      });
+
+    if (error) throw error;
+    await loadMonthlyData();
+  }, [user, transactions, users, assets]);
+
   const updateUserIncome = useCallback(async (userId: string, income: number) => {
     if (!user) return;
 
@@ -990,53 +1074,6 @@ export const useFinanceData = () => {
     localStorage.setItem('financeApp_monthlyAllocations', JSON.stringify(updatedAllocations));
   }, [user, monthlyAllocations]);
 
-  /** Adjust a budget category's spent amount by a delta. */
-  const adjustBudgetSpent = useCallback(
-    async (expense: Transaction, delta: number) => {
-      if (!user) return;
-      try {
-        const monthKey = expense.date.substring(0, 7) + '-01';
-        const budget = budgets.find(
-          (b) => b.userId === expense.userId && b.month === monthKey,
-        );
-        if (!budget) return;
-        const categoryRecord = budgetCategories.find(
-          (bc) => bc.budgetId === budget.id && bc.category === expense.category,
-        );
-        if (!categoryRecord) return;
-        const newSpent = Math.max(categoryRecord.spentAmount + delta, 0);
-        const { error } = await supabase
-          .from('budget_categories')
-          .update({ spent_amount: newSpent })
-          .eq('id', categoryRecord.id);
-        if (error) throw error;
-        await loadBudgetCategories();
-      } catch (error) {
-        console.error('Error adjusting budget spent:', error);
-      }
-    },
-    [user, budgets, budgetCategories],
-  );
-
-  /**
-   * Link an individual expense to the current month's budget.  When an expense
-   * is recorded, this helper locates the appropriate budget (if any) and
-   * increments the spent amount for the matching category.  If no budget or
-   * category record exists, the function silently returns.  Expenses with
-   * unknown categories will not impact budgets.
-   */
-  const linkExpenseToBudget = useCallback(
-    async (expense: Transaction) => {
-      if (!user) return;
-      try {
-        await adjustBudgetSpent(expense, Math.abs(expense.amount));
-      } catch (error) {
-        console.error('Error linking expense to budget:', error);
-      }
-    },
-    [user, adjustBudgetSpent],
-  );
-
   const createMonthlyBudget = useCallback(async (userId: string, month: string, totalAmount: number, categoryBreakdown: { category: string; allocatedAmount: number }[]) => {
     if (!user) return;
 
@@ -1224,43 +1261,6 @@ export const useFinanceData = () => {
     };
   }, [user, budgets, budgetCategories]);
 
-  const updateMonthlySummary = useCallback(async () => {
-    if (!user) return;
-    
-    const currentMonth = new Date();
-    currentMonth.setDate(1); // First day of current month
-    const monthKey = currentMonth.toISOString().split('T')[0];
-
-    const currentMonthTransactions = transactions.filter(t => {
-      const transactionDate = new Date(t.date);
-      return transactionDate.getMonth() === currentMonth.getMonth() && 
-             transactionDate.getFullYear() === currentMonth.getFullYear();
-    });
-
-    const totalIncome = users.reduce((sum, user) => sum + user.monthlyIncome, 0);
-    const totalSpending = currentMonthTransactions
-      .filter(t => t.amount < 0)
-      .reduce((sum, t) => sum + Math.abs(t.amount), 0);
-    const totalSavings = totalIncome - totalSpending;
-    const netWorth = assets.reduce((sum, asset) => sum + asset.value, 0);
-
-    const { error } = await supabase
-      .from('monthly_summaries')
-      .upsert({
-        user_id: user.id,
-        month: monthKey,
-        total_income: totalIncome,
-        total_spending: totalSpending,
-        total_savings: totalSavings,
-        net_worth: netWorth
-      }, {
-        onConflict: 'user_id,month'
-      });
-
-    if (error) throw error;
-    await loadMonthlyData();
-  }, [user, transactions, users, assets]);
-
   // Financial calculations
   const totalIncome = useMemo(() => 
     users.reduce((sum, user) => sum + user.monthlyIncome, 0), [users]
@@ -1361,7 +1361,6 @@ export const useFinanceData = () => {
     addAccount,
     updateAccount,
     deleteAccount,
-    updateUser,
     deleteUser,
     allocateToAccount,
     addVestingSchedule,
