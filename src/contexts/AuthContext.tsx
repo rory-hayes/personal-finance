@@ -57,6 +57,189 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
 
+  // Hoist loadUserProfile so it can be safely called before its definition
+  async function loadUserProfile(userId: string, currentUser?: User) {
+    try {
+      console.log('🔍 Loading user profile for:', userId);
+      console.log('🔍 Supabase URL:', import.meta.env.VITE_SUPABASE_URL ? 'SET' : 'NOT SET');
+      console.log('🔍 Supabase Key:', import.meta.env.VITE_SUPABASE_ANON_KEY ? 'SET (first 20 chars): ' + import.meta.env.VITE_SUPABASE_ANON_KEY?.substring(0, 20) : 'NOT SET');
+
+      // Check localStorage backup first for faster loading
+      const backupProfile = localStorage.getItem(`userProfile_${userId}`);
+      const onboardingCompleted = localStorage.getItem(`onboardingCompleted_${userId}`);
+
+      if (backupProfile && onboardingCompleted === 'true') {
+        try {
+          const parsedProfile = JSON.parse(backupProfile);
+          console.log('📦 Found profile backup in localStorage:', parsedProfile);
+          setProfile(parsedProfile);
+
+          // Return early if backup shows onboarding completed
+          if (parsedProfile.onboarding_completed) {
+            console.log('✅ Using localStorage backup - onboarding marked complete');
+            return;
+          }
+        } catch (parseError) {
+          console.error('⚠️ Error parsing localStorage profile:', parseError);
+        }
+      }
+
+      // Try to load from database with timeout
+      console.log('🔍 Attempting database connection...');
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('Database connection timeout')), 10000); // 10 second timeout
+      });
+
+      const dbPromise = supabase
+        .from('user_profiles')
+        .select('*')
+        .eq('id', userId)
+        .single();
+
+      const { data, error } = await Promise.race([dbPromise, timeoutPromise]) as any;
+
+      if (error) {
+        console.error('❌ Error loading user profile from database:', error);
+        console.log('📋 Database error details:', {
+          code: error.code,
+          message: error.message,
+          details: error.details,
+          hint: error.hint
+        });
+
+        // If user profile doesn't exist, create a default one
+        if (error.code === 'PGRST116') { // No rows returned
+          console.log('📝 No user profile found in database, creating default profile...');
+          const userToUse = currentUser || user;
+
+          try {
+            const newProfileData = {
+              id: userId,
+              email: userToUse?.email || '',
+              full_name: userToUse?.user_metadata?.full_name || userToUse?.email || 'User',
+              household_size: 1,
+              monthly_income: 0,
+              currency: 'EUR',
+              timezone: 'UTC',
+              onboarding_completed: false,
+            };
+
+            console.log('📝 Creating new profile:', newProfileData);
+
+            const createTimeoutPromise = new Promise((_, reject) => {
+              setTimeout(() => reject(new Error('Profile creation timeout')), 10000);
+            });
+
+            const createPromise = supabase
+              .from('user_profiles')
+              .insert(newProfileData)
+              .select()
+              .single();
+
+            const { data: newProfile, error: createError } = await Promise.race([createPromise, createTimeoutPromise]) as any;
+
+            if (createError) {
+              console.error('❌ Error creating user profile:', createError);
+
+              // Fall back to localStorage if available
+              if (backupProfile) {
+                console.log('📦 Using localStorage backup after creation failure');
+                return;
+              }
+
+              // Create a minimal profile in memory
+              const minimalProfile = {
+                ...newProfileData,
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString()
+              };
+
+              setProfile(minimalProfile);
+              console.log('🆘 Created minimal profile in memory:', minimalProfile);
+              return;
+            }
+
+            if (newProfile) {
+              setProfile(newProfile);
+              console.log('✅ Created new user profile in database:', newProfile);
+
+              // Backup to localStorage
+              localStorage.setItem(`userProfile_${userId}`, JSON.stringify(newProfile));
+            }
+          } catch (createException) {
+            console.error('💥 Exception creating user profile:', createException);
+
+            // Use localStorage backup if available
+            if (backupProfile) {
+              console.log('📦 Using localStorage backup after creation failure');
+              return;
+            }
+
+            // Create emergency profile
+            const emergencyProfile = {
+              id: userId,
+              email: currentUser?.email || user?.email || '',
+              full_name: currentUser?.user_metadata?.full_name || user?.user_metadata?.full_name || 'User',
+              household_size: 1,
+              monthly_income: 0,
+              currency: 'EUR',
+              timezone: 'UTC',
+              onboarding_completed: false,
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString()
+            };
+
+            setProfile(emergencyProfile);
+            console.log('🚨 Created emergency profile:', emergencyProfile);
+          }
+        } else if (error.message?.includes('timeout') || error.message?.includes('connection')) {
+          console.log('🔄 Database connection timeout - using localStorage if available');
+          if (backupProfile) {
+            console.log('📦 Using localStorage backup due to connection timeout');
+            return;
+          }
+        } else {
+          // Other database errors - use localStorage backup if available
+          if (backupProfile) {
+            console.log('📦 Using localStorage backup due to database error');
+            return;
+          }
+        }
+        return;
+      }
+
+      if (data) {
+        setProfile(data);
+        console.log('✅ Loaded user profile from database:', data);
+
+        // Update localStorage backup
+        localStorage.setItem(`userProfile_${userId}`, JSON.stringify(data));
+        if (data.onboarding_completed) {
+          localStorage.setItem(`onboardingCompleted_${userId}`, 'true');
+        }
+      }
+    } catch (error: unknown) {
+      console.error('💥 Exception in loadUserProfile:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+
+      if (errorMessage.includes('timeout') || errorMessage.includes('connection')) {
+        console.log('🔄 Connection timeout detected');
+      }
+
+      // Try localStorage backup as last resort
+      const backupProfile = localStorage.getItem(`userProfile_${userId}`);
+      if (backupProfile) {
+        try {
+          const parsedProfile = JSON.parse(backupProfile);
+          setProfile(parsedProfile);
+          console.log('📦 Using localStorage backup after exception:', parsedProfile);
+        } catch (parseError) {
+          console.error('💥 Error parsing localStorage backup:', parseError);
+        }
+      }
+    }
+  }
+
   useEffect(() => {
     // Check if we're in mock mode immediately
     if (isSupabaseMock) {
@@ -131,187 +314,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     };
   }, []);
 
-  const loadUserProfile = async (userId: string, currentUser?: User) => {
-    try {
-      console.log('🔍 Loading user profile for:', userId);
-      console.log('🔍 Supabase URL:', import.meta.env.VITE_SUPABASE_URL ? 'SET' : 'NOT SET');
-      console.log('🔍 Supabase Key:', import.meta.env.VITE_SUPABASE_ANON_KEY ? 'SET (first 20 chars): ' + import.meta.env.VITE_SUPABASE_ANON_KEY?.substring(0, 20) : 'NOT SET');
-      
-      // Check localStorage backup first for faster loading
-      const backupProfile = localStorage.getItem(`userProfile_${userId}`);
-      const onboardingCompleted = localStorage.getItem(`onboardingCompleted_${userId}`);
-      
-      if (backupProfile && onboardingCompleted === 'true') {
-        try {
-          const parsedProfile = JSON.parse(backupProfile);
-          console.log('📦 Found profile backup in localStorage:', parsedProfile);
-          setProfile(parsedProfile);
-          
-          // Return early if backup shows onboarding completed
-          if (parsedProfile.onboarding_completed) {
-            console.log('✅ Using localStorage backup - onboarding marked complete');
-            return;
-          }
-        } catch (parseError) {
-          console.error('⚠️ Error parsing localStorage profile:', parseError);
-        }
-      }
-      
-      // Try to load from database with timeout
-      console.log('🔍 Attempting database connection...');
-      const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error('Database connection timeout')), 10000); // 10 second timeout
-      });
-      
-      const dbPromise = supabase
-        .from('user_profiles')
-        .select('*')
-        .eq('id', userId)
-        .single();
-        
-      const { data, error } = await Promise.race([dbPromise, timeoutPromise]) as any;
-
-      if (error) {
-        console.error('❌ Error loading user profile from database:', error);
-        console.log('📋 Database error details:', {
-          code: error.code,
-          message: error.message,
-          details: error.details,
-          hint: error.hint
-        });
-        
-        // If user profile doesn't exist, create a default one
-        if (error.code === 'PGRST116') { // No rows returned
-          console.log('📝 No user profile found in database, creating default profile...');
-          const userToUse = currentUser || user;
-          
-          try {
-            const newProfileData = {
-              id: userId,
-              email: userToUse?.email || '',
-              full_name: userToUse?.user_metadata?.full_name || userToUse?.email || 'User',
-              household_size: 1,
-              monthly_income: 0,
-              currency: 'EUR',
-              timezone: 'UTC',
-              onboarding_completed: false,
-            };
-            
-            console.log('📝 Creating new profile:', newProfileData);
-            
-            const createTimeoutPromise = new Promise((_, reject) => {
-              setTimeout(() => reject(new Error('Profile creation timeout')), 10000);
-            });
-            
-            const createPromise = supabase
-              .from('user_profiles')
-              .insert(newProfileData)
-              .select()
-              .single();
-              
-            const { data: newProfile, error: createError } = await Promise.race([createPromise, createTimeoutPromise]) as any;
-
-            if (createError) {
-              console.error('❌ Error creating user profile:', createError);
-              
-              // Fall back to localStorage if available
-              if (backupProfile) {
-                console.log('📦 Using localStorage backup after creation failure');
-                return;
-              }
-              
-              // Create a minimal profile in memory
-              const minimalProfile = {
-                ...newProfileData,
-                created_at: new Date().toISOString(),
-                updated_at: new Date().toISOString()
-              };
-              
-              setProfile(minimalProfile);
-              console.log('🆘 Created minimal profile in memory:', minimalProfile);
-              return;
-            }
-
-            if (newProfile) {
-              setProfile(newProfile);
-              console.log('✅ Created new user profile in database:', newProfile);
-              
-              // Backup to localStorage
-              localStorage.setItem(`userProfile_${userId}`, JSON.stringify(newProfile));
-            }
-          } catch (createException) {
-            console.error('💥 Exception creating user profile:', createException);
-            
-            // Use localStorage backup if available
-            if (backupProfile) {
-              console.log('📦 Using localStorage backup after creation failure');
-              return;
-            }
-            
-            // Create emergency profile
-            const emergencyProfile = {
-              id: userId,
-              email: currentUser?.email || user?.email || '',
-              full_name: currentUser?.user_metadata?.full_name || user?.user_metadata?.full_name || 'User',
-              household_size: 1,
-              monthly_income: 0,
-              currency: 'EUR',
-              timezone: 'UTC',
-              onboarding_completed: false,
-              created_at: new Date().toISOString(),
-              updated_at: new Date().toISOString()
-            };
-            
-            setProfile(emergencyProfile);
-            console.log('🚨 Created emergency profile:', emergencyProfile);
-          }
-        } else if (error.message?.includes('timeout') || error.message?.includes('connection')) {
-          console.log('🔄 Database connection timeout - using localStorage if available');
-          if (backupProfile) {
-            console.log('📦 Using localStorage backup due to connection timeout');
-            return;
-          }
-        } else {
-          // Other database errors - use localStorage backup if available
-          if (backupProfile) {
-            console.log('📦 Using localStorage backup due to database error');
-            return;
-          }
-        }
-        return;
-      }
-
-      if (data) {
-        setProfile(data);
-        console.log('✅ Loaded user profile from database:', data);
-        
-        // Update localStorage backup
-        localStorage.setItem(`userProfile_${userId}`, JSON.stringify(data));
-        if (data.onboarding_completed) {
-          localStorage.setItem(`onboardingCompleted_${userId}`, 'true');
-        }
-      }
-    } catch (error: unknown) {
-      console.error('💥 Exception in loadUserProfile:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      
-      if (errorMessage.includes('timeout') || errorMessage.includes('connection')) {
-        console.log('🔄 Connection timeout detected');
-      }
-      
-      // Try localStorage backup as last resort
-      const backupProfile = localStorage.getItem(`userProfile_${userId}`);
-      if (backupProfile) {
-        try {
-          const parsedProfile = JSON.parse(backupProfile);
-          setProfile(parsedProfile);
-          console.log('📦 Using localStorage backup after exception:', parsedProfile);
-        } catch (parseError) {
-          console.error('💥 Error parsing localStorage backup:', parseError);
-        }
-      }
-    }
-  };
 
   const signUp = async (email: string, password: string, fullName: string) => {
     try {
