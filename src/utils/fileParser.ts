@@ -16,10 +16,18 @@ export const parseCSV = (content: string, userId?: string): Transaction[] => {
   // Try to identify column positions
   const dateIndex = findColumnIndex(headers, ['date', 'transaction date', 'posting date', 'value date', 'datum']);
   const descriptionIndex = findColumnIndex(headers, ['description', 'memo', 'details', 'transaction details', 'payee', 'beschreibung', 'verwendungszweck']);
-  const amountIndex = findColumnIndex(headers, ['amount', 'debit', 'credit', 'transaction amount', 'value', 'betrag', 'umsatz']);
+  
+  // Look for separate debit/credit columns first
+  const debitIndex = findColumnIndex(headers, ['debit amount', 'debit', 'withdrawal', 'out', 'expense']);
+  const creditIndex = findColumnIndex(headers, ['credit amount', 'credit', 'deposit', 'in', 'income']);
+  
+  // Fallback to single amount column if separate columns not found
+  const amountIndex = (debitIndex === -1 && creditIndex === -1) ? 
+    findColumnIndex(headers, ['amount', 'transaction amount', 'value', 'betrag', 'umsatz']) : -1;
+  
   const categoryIndex = findColumnIndex(headers, ['category', 'type', 'transaction type', 'kategorie']);
 
-  console.log('Column mapping:', { dateIndex, descriptionIndex, amountIndex, categoryIndex });
+  console.log('Column mapping:', { dateIndex, descriptionIndex, debitIndex, creditIndex, amountIndex, categoryIndex });
 
   // Process data rows
   for (let i = 1; i < lines.length; i++) {
@@ -28,33 +36,66 @@ export const parseCSV = (content: string, userId?: string): Transaction[] => {
 
     const fields = parseCSVLine(line);
     
-    if (fields.length >= Math.max(dateIndex, descriptionIndex, amountIndex) + 1) {
+    // Check if we have enough fields for the required columns
+    const requiredColumnsCount = Math.max(
+      dateIndex,
+      descriptionIndex,
+      debitIndex !== -1 ? debitIndex : -1,
+      creditIndex !== -1 ? creditIndex : -1,
+      amountIndex !== -1 ? amountIndex : -1
+    ) + 1;
+    
+    if (fields.length >= requiredColumnsCount) {
       try {
         const dateStr = fields[dateIndex]?.replace(/"/g, '').trim();
         const description = fields[descriptionIndex]?.replace(/"/g, '').trim() || 'Transaction';
-        const amountStr = fields[amountIndex]?.replace(/"/g, '').trim();
         const category = fields[categoryIndex]?.replace(/"/g, '').trim();
 
-        console.log(`Row ${i}: date="${dateStr}", desc="${description}", amount="${amountStr}"`);
+        let amount = 0;
+        let amountSource = '';
+
+        // Handle separate debit/credit columns
+        if (debitIndex !== -1 && creditIndex !== -1) {
+          const debitStr = fields[debitIndex]?.replace(/"/g, '').trim() || '';
+          const creditStr = fields[creditIndex]?.replace(/"/g, '').trim() || '';
+          
+          const debitAmount = debitStr ? parseAmount(debitStr) : 0;
+          const creditAmount = creditStr ? parseAmount(creditStr) : 0;
+          
+          // Debit amounts are expenses (negative), credit amounts are income (positive)
+          if (debitAmount > 0) {
+            amount = -Math.abs(debitAmount); // Make sure debits are negative
+            amountSource = `debit: ${debitStr}`;
+          } else if (creditAmount > 0) {
+            amount = Math.abs(creditAmount); // Make sure credits are positive
+            amountSource = `credit: ${creditStr}`;
+          }
+        }
+        // Fallback to single amount column
+        else if (amountIndex !== -1) {
+          const amountStr = fields[amountIndex]?.replace(/"/g, '').trim();
+          amount = parseAmount(amountStr);
+          amountSource = `amount: ${amountStr}`;
+        }
+
+        console.log(`Row ${i}: date="${dateStr}", desc="${description}", ${amountSource}`);
 
         const date = parseDate(dateStr);
-        const amount = parseAmount(amountStr);
 
         console.log(`Parsed: date=${date}, amount=${amount}`);
 
         if (!isNaN(amount) && amount !== 0 && date) {
           const detectedCategory = category || categorizeTransaction(description);
-          const normalizedAmount = normalizeAmountByCategory(amount, detectedCategory, description);
           
           transactions.push({
             id: `${i}-${Date.now()}`,
             date: date,
             description: description,
-            amount: normalizedAmount,
+            amount: amount, // Use amount as-is (negative for expenses, positive for income)
             category: detectedCategory,
             userId: userId || 'unknown',
           });
-          console.log(`Added transaction: ${description} - ${normalizedAmount} (${detectedCategory})`);
+          console.log(`Added transaction: ${description} - ${amount} (${detectedCategory})`);
         }
       } catch (error) {
         console.warn(`Error parsing CSV line ${i}:`, line, error);

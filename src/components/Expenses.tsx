@@ -126,6 +126,14 @@ const Expenses: React.FC = () => {
         }
 
         if (transactions.length > 0) {
+          // Debug: Log first few transactions to verify parsing
+          console.log('📊 Sample transactions parsed:', transactions.slice(0, 3).map(t => ({
+            description: t.description,
+            amount: t.amount,
+            isExpense: t.amount < 0,
+            category: t.category
+          })));
+          
           // Only set pending transactions for review - DO NOT save to database yet
           setPendingTransactions(transactions);
           setShowReviewModal(true);

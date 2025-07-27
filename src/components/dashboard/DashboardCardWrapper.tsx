@@ -157,9 +157,11 @@ const DashboardCardWrapper: React.FC<DashboardCardWrapperProps> = ({
         return <ExpenseCategoriesCard card={card} financeData={financeData} />;
       
       case 'top-spending':
+      case 'top-spending-categories':
         return <TopSpendingCard card={card} financeData={financeData} />;
       
       case 'budget-tracking':
+      case 'budgets-tracking':
         return <BudgetTrackingCard card={card} financeData={financeData} />;
       
       case 'financial-goals':
