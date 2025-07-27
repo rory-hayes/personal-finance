@@ -215,7 +215,7 @@ const DashboardCardWrapper: React.FC<DashboardCardWrapperProps> = ({
         return <DashboardCustomizationCard card={card} financeData={financeData} />;
 
       case 'emergency-fund':
-        return <EmergencyFundCard card={card} />;
+        return <EmergencyFundCard card={card} financeData={financeData} />;
 
       case 'net-worth-projection':
         return <NetWorthProjectionCard card={card} financeData={financeData} />;

@@ -732,12 +732,23 @@ const Users: React.FC = () => {
                         <button onClick={() => {setEditingNameUser(null);setNewName('');}} className="text-red-600">✕</button>
                       </div>
                     ) : (
-                      <h3 className="text-lg font-semibold text-gray-900">
-                        {user.name}
-                        {user.isPrimary && (
-                          <span className="ml-2 px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded-full">Primary</span>
+                      <div className="flex items-center gap-2">
+                        <h3 className="text-lg font-semibold text-gray-900">
+                          {user.name}
+                          {user.isPrimary && (
+                            <span className="ml-2 px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded-full">Primary</span>
+                          )}
+                        </h3>
+                        {editingNameUser !== user.id && (
+                          <button
+                            onClick={() => handleEditName(user.id, user.name)}
+                            className="p-1 text-gray-400 hover:text-blue-600 transition-colors"
+                            title="Edit name"
+                          >
+                            <Edit3 className="h-3 w-3" />
+                          </button>
                         )}
-                      </h3>
+                      </div>
                     )}
                     <p className="text-sm text-gray-600">
                       {incomePercentage.toFixed(1)}% of household income
@@ -771,29 +782,26 @@ const Users: React.FC = () => {
                         </button>
                       </div>
                     ) : (
-                      <p className="text-xl font-bold text-gray-900">
-                        €{user.monthlyIncome.toLocaleString()}
-                      </p>
+                      <div className="flex items-center gap-2">
+                        <div>
+                          <p className="text-xl font-bold text-gray-900">
+                            €{user.monthlyIncome.toLocaleString()}
+                          </p>
+                          <p className="text-sm text-gray-500">per month</p>
+                        </div>
+                        {editingUser !== user.id && (
+                          <button
+                            onClick={() => handleEditIncome(user.id, user.monthlyIncome)}
+                            className="p-1 text-gray-400 hover:text-blue-600 transition-colors"
+                            title="Edit monthly income"
+                          >
+                            <Edit3 className="h-3 w-3" />
+                          </button>
+                        )}
+                      </div>
                     )}
-                    <p className="text-sm text-gray-500">per month</p>
                   </div>
                   
-                  {editingUser !== user.id && (
-                    <button
-                      onClick={() => handleEditIncome(user.id, user.monthlyIncome)}
-                      className="p-2 text-gray-400 hover:text-blue-600 transition-colors"
-                    >
-                      <Edit3 className="h-4 w-4" />
-                    </button>
-                  )}
-                  {editingNameUser !== user.id && (
-                    <button
-                      onClick={() => handleEditName(user.id, user.name)}
-                      className="p-2 text-gray-400 hover:text-blue-600 transition-colors"
-                    >
-                      <Edit3 className="h-4 w-4" />
-                    </button>
-                  )}
                   <button
                     onClick={() => handleDeleteUserClick(user.id, user.name)}
                     className="p-2 text-gray-400 hover:text-red-600 transition-colors"

@@ -346,13 +346,6 @@ const Budget: React.FC = () => {
 
                   <div className="flex gap-2 mt-4">
                     <button
-                      onClick={() => handleAllocateBudget(user.id)}
-                      className="flex-1 px-3 py-2 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700"
-                      disabled={!mainAccount}
-                    >
-                      Allocate
-                    </button>
-                    <button
                       onClick={() => setEditingUser(user.id)}
                       className="px-3 py-2 text-gray-600 border border-gray-300 text-sm rounded-lg hover:bg-gray-50"
                     >

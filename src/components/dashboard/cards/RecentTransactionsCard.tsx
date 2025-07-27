@@ -153,10 +153,7 @@ const RecentTransactionsCard: React.FC<RecentTransactionsCardProps> = ({ card, f
                   <p className={`text-sm font-bold ${transaction.isIncome ? 'text-green-600' : 'text-red-600'}`}>
                     {transaction.isIncome ? '+' : '-'}€{transaction.displayAmount.toLocaleString()}
                   </p>
-                  {/* Debug info - shows raw amount to verify parsing */}
-                  <p className="text-xs text-gray-400">
-                    raw: {transaction.amount}
-                  </p>
+
                 </div>
               </div>
             ))}

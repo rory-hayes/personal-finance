@@ -470,7 +470,7 @@ const Expenses: React.FC = () => {
           <div className="flex items-center justify-between mb-6">
             <h3 className="text-lg font-semibold text-gray-900">Expense History</h3>
             <p className="text-sm text-gray-600">
-              {transactions.filter(t => t.amount < 0).length} expenses found
+{transactions.filter(t => t.amount < 0).length} expenses found ({transactions.length} total transactions)
             </p>
           </div>
 
@@ -522,6 +522,13 @@ const Expenses: React.FC = () => {
               Clear Filters
             </button>
           </div>
+
+          {/* Debug Info */}
+          {transactions.length === 0 && (
+            <div className="text-sm text-gray-500 mb-4">
+              ⚠️ No transactions loaded. Make sure you've uploaded and imported transactions.
+            </div>
+          )}
 
           {/* Expenses List */}
           <div className="space-y-3 max-h-96 overflow-y-auto">

@@ -1,20 +1,19 @@
 import React, { useMemo } from 'react';
 import { Shield, TrendingUp, AlertTriangle, CheckCircle } from 'lucide-react';
-import { ResponsiveContainer, ProgressBar } from 'recharts';
-import { useFinanceData } from '../../../hooks/useFinanceData';
 import { DashboardCard as DashboardCardType } from '../../../types/dashboard';
 
 interface EmergencyFundCardProps {
   card: DashboardCardType;
+  financeData: any;
 }
 
-const EmergencyFundCard: React.FC<EmergencyFundCardProps> = ({ card }) => {
-  const { totalAccountBalance, totalSpending, accounts } = useFinanceData();
+const EmergencyFundCard: React.FC<EmergencyFundCardProps> = ({ card, financeData }) => {
+  const { totalAccountBalance, totalSpending, accounts } = financeData;
 
   // Calculate emergency fund metrics
   const emergencyFundData = useMemo(() => {
     const monthlyExpenses = totalSpending || 0;
-    const currentEmergencyFund = accounts.find(account => 
+    const currentEmergencyFund = accounts.find((account: any) => 
       account.name.toLowerCase().includes('emergency') || 
       account.name.toLowerCase().includes('savings')
     )?.balance || totalAccountBalance * 0.3; // Estimate if no dedicated emergency fund
