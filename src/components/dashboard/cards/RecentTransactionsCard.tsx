@@ -11,6 +11,19 @@ const RecentTransactionsCard: React.FC<RecentTransactionsCardProps> = ({ card, f
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState<'all' | 'income' | 'expense'>('all');
 
+  // Helper function to get relative date (moved before useMemo to avoid temporal dead zone)
+  const getRelativeDate = (date: Date): string => {
+    const now = new Date();
+    const diffInMs = now.getTime() - date.getTime();
+    const diffInDays = Math.floor(diffInMs / (1000 * 60 * 60 * 24));
+    
+    if (diffInDays === 0) return 'Today';
+    if (diffInDays === 1) return 'Yesterday';
+    if (diffInDays < 7) return `${diffInDays} days ago`;
+    if (diffInDays < 30) return `${Math.floor(diffInDays / 7)} weeks ago`;
+    return date.toLocaleDateString();
+  };
+
   // Process recent transactions
   const transactionData = useMemo(() => {
     if (!transactions || !Array.isArray(transactions) || transactions.length === 0) {
@@ -73,18 +86,6 @@ const RecentTransactionsCard: React.FC<RecentTransactionsCardProps> = ({ card, f
       hasData: enrichedTransactions.length > 0
     };
   }, [transactions, accounts, users, searchTerm, filterType, card.size]);
-
-  const getRelativeDate = (date: Date): string => {
-    const now = new Date();
-    const diffInMs = now.getTime() - date.getTime();
-    const diffInDays = Math.floor(diffInMs / (1000 * 60 * 60 * 24));
-    
-    if (diffInDays === 0) return 'Today';
-    if (diffInDays === 1) return 'Yesterday';
-    if (diffInDays < 7) return `${diffInDays} days ago`;
-    if (diffInDays < 30) return `${Math.floor(diffInDays / 7)} weeks ago`;
-    return date.toLocaleDateString();
-  };
 
   const getCategoryColor = (category: string): string => {
     const colors: any = {
