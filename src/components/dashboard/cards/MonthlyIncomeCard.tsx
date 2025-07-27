@@ -12,11 +12,23 @@ const MonthlyIncomeCard: React.FC<MonthlyIncomeCardProps> = ({ card, financeData
 
   // Calculate income data
   const incomeData = useMemo(() => {
+    // Safety checks
+    if (!users || !Array.isArray(users) || !transactions || !Array.isArray(transactions)) {
+      return {
+        currentIncome: 0,
+        lastIncome: 0,
+        change: 0,
+        isPositive: true,
+        incomeByUser: [],
+        hasMultipleUsers: false
+      };
+    }
+
     const currentMonth = new Date();
     const lastMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1);
     
     // Current month income from users.monthly_income
-    const currentMonthIncome = users.reduce((sum: number, user: any) => sum + (user.monthlyIncome || 0), 0);
+    const currentMonthIncome = users.reduce((sum: number, user: any) => sum + (user?.monthlyIncome || 0), 0);
     
     // Also calculate actual income from transactions if available
     const currentMonthTransactionIncome = transactions

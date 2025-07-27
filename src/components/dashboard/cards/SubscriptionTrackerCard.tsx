@@ -24,11 +24,20 @@ const SubscriptionTrackerCard: React.FC<SubscriptionTrackerCardProps> = ({ card,
 
     // Group transactions by description and look for recurring patterns
     const transactionGroups = transactions.reduce((groups: Record<string, any[]>, transaction: any) => {
+      // Safety check for transaction and description
+      if (!transaction || !transaction.description) {
+        return groups;
+      }
+
       // Normalize description for grouping
       const normalizedDesc = transaction.description.toLowerCase()
         .replace(/\d+/g, '') // Remove numbers
         .replace(/[^\w\s]/g, '') // Remove special chars
         .trim();
+
+      if (!normalizedDesc) {
+        return groups; // Skip empty descriptions
+      }
 
       if (!groups[normalizedDesc]) {
         groups[normalizedDesc] = [];
@@ -67,18 +76,21 @@ const SubscriptionTrackerCard: React.FC<SubscriptionTrackerCardProps> = ({ card,
 
         const avgInterval = intervals.length > 0 ? 
           intervals.reduce((sum: number, interval: number) => sum + interval, 0) / intervals.length : 30;
+        
+        // Ensure avgInterval is a valid number
+        const safeAvgInterval = isNaN(avgInterval) || !isFinite(avgInterval) ? 30 : avgInterval;
 
         // Determine frequency type
         let frequency = 'monthly';
         let monthlyAmount = avgAmount;
         
-        if (avgInterval < 20) {
+        if (safeAvgInterval < 20) {
           frequency = 'weekly';
           monthlyAmount = avgAmount * 4.33; // weeks per month
-        } else if (avgInterval > 40 && avgInterval < 100) {
+        } else if (safeAvgInterval > 40 && safeAvgInterval < 100) {
           frequency = 'monthly';
           monthlyAmount = avgAmount;
-        } else if (avgInterval > 300) {
+        } else if (safeAvgInterval > 300) {
           frequency = 'yearly';
           monthlyAmount = avgAmount / 12;
         }
@@ -102,9 +114,9 @@ const SubscriptionTrackerCard: React.FC<SubscriptionTrackerCardProps> = ({ card,
           lastPayment: sortedTransactions[sortedTransactions.length - 1].date,
           nextEstimatedPayment: new Date(
             new Date(sortedTransactions[sortedTransactions.length - 1].date).getTime() + 
-            (avgInterval * 24 * 60 * 60 * 1000)
+            (safeAvgInterval * 24 * 60 * 60 * 1000)
           ).toISOString().split('T')[0],
-          avgInterval: Math.round(avgInterval),
+          avgInterval: Math.round(safeAvgInterval),
           transactions: groupTransactions
         };
       })
@@ -188,7 +200,7 @@ const SubscriptionTrackerCard: React.FC<SubscriptionTrackerCardProps> = ({ card,
                   innerRadius={30}
                   outerRadius={60}
                   dataKey="value"
-                  label={({ name, value }) => `${name}: €${Math.round(value)}`}
+                  label={({ name, value }) => `${name}: €${Math.round(value || 0)}`}
                   labelLine={false}
                   fontSize={10}
                 >
@@ -196,7 +208,7 @@ const SubscriptionTrackerCard: React.FC<SubscriptionTrackerCardProps> = ({ card,
                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                   ))}
                 </Pie>
-                <Tooltip formatter={(value: any) => [`€${Math.round(value)}`, 'Monthly Cost']} />
+                <Tooltip formatter={(value: any) => [`€${Math.round(value || 0)}`, 'Monthly Cost']} />
               </PieChart>
             </ResponsiveContainer>
           </div>

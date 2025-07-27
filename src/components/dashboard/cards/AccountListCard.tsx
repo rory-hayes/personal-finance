@@ -23,7 +23,7 @@ const AccountListCard: React.FC<AccountListCardProps> = ({ card, financeData }) 
 
   // Calculate account data with recent activity
   const accountData = useMemo(() => {
-    if (!accounts || accounts.length === 0) {
+    if (!accounts || !Array.isArray(accounts) || accounts.length === 0) {
       return {
         accounts: [],
         totalBalance: 0,

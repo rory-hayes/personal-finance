@@ -13,7 +13,7 @@ const RecentTransactionsCard: React.FC<RecentTransactionsCardProps> = ({ card, f
 
   // Process recent transactions
   const transactionData = useMemo(() => {
-    if (!transactions || transactions.length === 0) {
+    if (!transactions || !Array.isArray(transactions) || transactions.length === 0) {
       return {
         recentTransactions: [],
         totalIncome: 0,

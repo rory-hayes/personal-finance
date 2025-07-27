@@ -314,15 +314,25 @@ const Expenses: React.FC = () => {
       
       let successCount = 0;
       let errorCount = 0;
+      const totalTransactions = approvedTransactions.length;
       
-      for (const transaction of approvedTransactions) {
+      // Show progress for each transaction
+      for (let i = 0; i < approvedTransactions.length; i++) {
+        const transaction = approvedTransactions[i];
         try {
           await addTransaction(transaction);
           successCount++;
-          console.log('Transaction imported successfully:', transaction);
+          console.log(`Transaction ${i + 1}/${totalTransactions} imported successfully:`, transaction);
+          
+          // Update progress (optional - you could show this in UI)
+          setUploadResults([{
+            success: true,
+            message: `Importing transactions... ${successCount}/${totalTransactions} completed`,
+            transactionCount: successCount
+          }]);
         } catch (error) {
           errorCount++;
-          console.error('Error importing transaction:', transaction, error);
+          console.error(`Error importing transaction ${i + 1}/${totalTransactions}:`, transaction, error);
         }
       }
       
@@ -330,17 +340,14 @@ const Expenses: React.FC = () => {
       setPendingTransactions([]);
       setUploading(false);
       
-      // Update upload results to show import status
-      setUploadResults(prev => prev.map((result: any) => 
-        result.transactionCount ? {
-          ...result,
-          success: successCount > 0,
-          message: errorCount > 0 
-            ? `Imported ${successCount} transactions, ${errorCount} failed`
-            : `Successfully imported ${successCount} transactions`,
-          transactionCount: successCount
-        } : result
-      ));
+      // Show final results
+      setUploadResults([{
+        success: successCount > 0,
+        message: errorCount > 0 
+          ? `✅ Import complete: ${successCount} successful, ${errorCount} failed`
+          : `✅ Successfully imported all ${successCount} transactions!`,
+        transactionCount: successCount
+      }]);
       
       // Show detailed user feedback
       if (successCount > 0 && errorCount === 0) {
@@ -888,12 +895,24 @@ const Expenses: React.FC = () => {
             </div>
             
             <div className="p-6 border-t border-gray-200 flex gap-3">
-              <button
-                onClick={() => handleApproveTransactions(pendingTransactions.filter(t => !t.rejected))}
-                className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
-              >
-                Import {pendingTransactions.filter(t => !t.rejected).length} Transactions
-              </button>
+                              <button
+                  onClick={() => handleApproveTransactions(pendingTransactions.filter(t => !t.rejected))}
+                  disabled={uploading}
+                  className={`flex-1 px-4 py-2 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-offset-2 transition-colors ${
+                    uploading 
+                      ? 'bg-gray-400 cursor-not-allowed' 
+                      : 'bg-green-600 hover:bg-green-700 focus:ring-green-500'
+                  }`}
+                >
+                  {uploading ? (
+                    <div className="flex items-center justify-center gap-2">
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                      Importing...
+                    </div>
+                  ) : (
+                    `Import ${pendingTransactions.filter(t => !t.rejected).length} Transactions`
+                  )}
+                </button>
               <button
                 onClick={handleRejectTransactions}
                 className="px-4 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2"
