@@ -257,22 +257,22 @@ const Dashboard: React.FC = () => {
   const currentCards = currentConfig?.layoutConfig.cards || [];
 
   return (
-    <div className="p-8 max-w-full">
+    <div className="p-4 lg:p-8 max-w-full">
       {/* Header */}
-      <div className="flex items-center justify-between mb-8">
+      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between mb-6 lg:mb-8 gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Financial Dashboard</h1>
-          <p className="text-gray-600 mt-2">
-            Complete overview of your financial health • {currentConfig?.name || 'Loading...'}
+          <h1 className="text-2xl lg:text-3xl font-bold text-gray-900">Financial Dashboard</h1>
+          <p className="text-gray-600 mt-1 lg:mt-2 text-sm lg:text-base">
+            Complete overview of your financial health{currentConfig?.name && ` • ${currentConfig.name}`}
           </p>
         </div>
         
-        <div className="flex items-center gap-3">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
           {/* Time Range Selector */}
           <select
             value={selectedTimeRange}
             onChange={(e) => setSelectedTimeRange(e.target.value as any)}
-            className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[44px]"
           >
             <option value="current">Current Month</option>
             <option value="3months">Last 3 Months</option>
@@ -280,28 +280,34 @@ const Dashboard: React.FC = () => {
             <option value="12months">Last 12 Months</option>
           </select>
 
-          {/* Monthly Allocation Button */}
-          <button
-            onClick={() => setShowAllocationModal(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-          >
-            <Plus className="h-4 w-4" />
-            Monthly Allocation
-          </button>
-          
-          {/* Add Card Button */}
-          <button
-            onClick={() => setShowAddCardModal(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-          >
-            <Plus className="h-4 w-4" />
-            Add Card
-          </button>
+          <div className="flex gap-2">
+            {/* Monthly Allocation Button */}
+            <button
+              onClick={() => setShowAllocationModal(true)}
+              className="flex items-center justify-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg active:bg-green-700 lg:hover:bg-green-700 transition-colors min-h-[44px] flex-1 sm:flex-initial touch-manipulation"
+              style={{ WebkitTapHighlightColor: 'transparent' }}
+            >
+              <Plus className="h-4 w-4" />
+              <span className="hidden sm:inline">Monthly Allocation</span>
+              <span className="sm:hidden">Allocate</span>
+            </button>
+            
+            {/* Add Card Button */}
+            <button
+              onClick={() => setShowAddCardModal(true)}
+              className="flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg active:bg-blue-700 lg:hover:bg-blue-700 transition-colors min-h-[44px] flex-1 sm:flex-initial touch-manipulation"
+              style={{ WebkitTapHighlightColor: 'transparent' }}
+            >
+              <Plus className="h-4 w-4" />
+              <span className="hidden sm:inline">Add Card</span>
+              <span className="sm:hidden">Add</span>
+            </button>
+          </div>
         </div>
       </div>
 
       {/* Dashboard Grid */}
-      <div className="grid grid-cols-12 gap-6 auto-rows-max">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-6 auto-rows-max">
         {currentCards
           .filter(card => card.config?.visible !== false)
           .map((card) => (

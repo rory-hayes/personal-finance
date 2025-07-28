@@ -49,17 +49,20 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, onTabChange }) => 
         }}
         className={`
           ${isMobile 
-            ? 'flex flex-col items-center justify-center p-3 rounded-lg transition-colors min-h-[64px]' 
+            ? 'flex items-center gap-4 px-4 py-4 rounded-lg transition-colors w-full min-h-[56px] touch-manipulation' 
             : 'flex items-center gap-3 px-4 py-3 rounded-lg transition-colors w-full'
           }
           ${isActive 
             ? 'bg-blue-600 text-white shadow-lg' 
-            : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+            : isMobile 
+              ? 'text-gray-700 active:bg-gray-100 active:text-gray-900'
+              : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
           }
         `}
+        style={isMobile ? { WebkitTapHighlightColor: 'transparent' } : undefined}
       >
-        <Icon className={`${isMobile ? 'h-5 w-5' : 'h-5 w-5'}`} />
-        <span className={`${isMobile ? 'text-xs font-medium mt-1' : 'font-medium'}`}>
+        <Icon className="h-5 w-5" />
+        <span className={`${isMobile ? 'text-base font-medium' : 'font-medium'}`}>
           {item.label}
         </span>
       </button>
@@ -120,27 +123,28 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, onTabChange }) => 
 
       {/* Mobile Header */}
       <div className="lg:hidden">
-        <div className="flex items-center justify-between bg-white px-4 py-3 border-b border-gray-200">
+        <div className="flex items-center justify-between bg-white px-4 py-3 border-b border-gray-200 min-h-[56px]">
           <div className="flex items-center">
             <BarChart3 className="h-7 w-7 text-blue-600" />
             <span className="ml-2 text-lg font-bold text-gray-900">Nudge</span>
           </div>
           
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
             {/* Profile Avatar */}
-            <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center">
-              <User className="h-4 w-4 text-blue-600" />
+            <div className="h-9 w-9 rounded-full bg-blue-100 flex items-center justify-center">
+              <User className="h-5 w-5 text-blue-600" />
             </div>
             
             {/* Menu Button */}
             <button
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-              className="p-2 rounded-md text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+              className="p-2 rounded-lg text-gray-600 active:text-gray-900 active:bg-gray-100 min-h-[44px] min-w-[44px] flex items-center justify-center touch-manipulation"
+              style={{ WebkitTapHighlightColor: 'transparent' }}
             >
               {isMobileMenuOpen ? (
-                <X className="h-5 w-5" />
+                <X className="h-6 w-6" />
               ) : (
-                <Menu className="h-5 w-5" />
+                <Menu className="h-6 w-6" />
               )}
             </button>
           </div>
@@ -154,7 +158,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, onTabChange }) => 
             <div className="fixed top-0 right-0 bottom-0 w-full max-w-xs bg-white shadow-xl">
               <div className="flex flex-col h-full">
                 {/* Header */}
-                <div className="flex items-center justify-between p-4 border-b border-gray-200">
+                <div className="flex items-center justify-between p-4 border-b border-gray-200 min-h-[72px]">
                   <div className="flex items-center">
                     <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
                       <User className="h-6 w-6 text-blue-600" />
@@ -170,9 +174,10 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, onTabChange }) => 
                   </div>
                   <button
                     onClick={() => setIsMobileMenuOpen(false)}
-                    className="p-2 rounded-md text-gray-600 hover:text-gray-900"
+                    className="p-2 rounded-lg text-gray-600 active:text-gray-900 min-h-[44px] min-w-[44px] flex items-center justify-center touch-manipulation"
+                    style={{ WebkitTapHighlightColor: 'transparent' }}
                   >
-                    <X className="h-5 w-5" />
+                    <X className="h-6 w-6" />
                   </button>
                 </div>
 
@@ -187,10 +192,11 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, onTabChange }) => 
                 <div className="border-t border-gray-200 p-4">
                   <button
                     onClick={handleSignOut}
-                    className="flex items-center gap-2 text-gray-600 hover:text-gray-900 transition-colors w-full p-3 rounded-lg hover:bg-gray-100"
+                    className="flex items-center gap-3 text-gray-600 active:text-gray-900 transition-colors w-full p-4 rounded-lg active:bg-gray-100 min-h-[56px] touch-manipulation"
+                    style={{ WebkitTapHighlightColor: 'transparent' }}
                   >
                     <LogOut className="h-5 w-5" />
-                    <span>Sign out</span>
+                    <span className="font-medium">Sign out</span>
                   </button>
                 </div>
               </div>
@@ -202,15 +208,15 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, onTabChange }) => 
       {/* Main Content */}
       <div className="lg:pl-64">
         <main className="flex-1">
-          <div className="py-4 lg:py-6">
+          <div className="py-4 lg:py-6 px-4 lg:px-6 pb-24 lg:pb-6">
             {children}
           </div>
         </main>
       </div>
 
       {/* Mobile Bottom Navigation */}
-      <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 safe-area-pb">
-        <div className="grid grid-cols-6 gap-1 px-2 py-2">
+      <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-50 safe-area-pb">
+        <div className="grid grid-cols-6 px-1 py-1 lg:py-2">
           {navItems.map((item) => {
             const Icon = item.icon;
             const isActive = activeTab === item.id;
@@ -220,15 +226,16 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, onTabChange }) => 
                 key={item.id}
                 onClick={() => onTabChange(item.id)}
                 className={`
-                  flex flex-col items-center justify-center p-2 rounded-lg transition-colors min-h-[56px]
+                  flex flex-col items-center justify-center p-1.5 rounded-lg transition-colors min-h-[64px] min-w-[44px] touch-manipulation
                   ${isActive 
                     ? 'bg-blue-50 text-blue-600' 
-                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                    : 'text-gray-600 active:bg-gray-100 active:text-gray-900'
                   }
                 `}
+                style={{ WebkitTapHighlightColor: 'transparent' }}
               >
-                <Icon className="h-5 w-5" />
-                <span className="text-xs font-medium mt-1 leading-tight">
+                <Icon className="h-5 w-5 mb-1" />
+                <span className="text-[10px] font-medium leading-tight text-center">
                   {item.label}
                 </span>
               </button>
@@ -236,9 +243,6 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, onTabChange }) => 
           })}
         </div>
       </div>
-
-      {/* Mobile Bottom Padding */}
-      <div className="lg:hidden h-20" />
     </div>
   );
 };

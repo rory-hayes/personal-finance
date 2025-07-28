@@ -473,17 +473,19 @@ const Expenses: React.FC = () => {
               <p className="text-blue-800 mb-4">
                 Start tracking your expenses by uploading a bank statement or adding your first expense manually.
               </p>
-              <div className="flex flex-wrap gap-3">
+              <div className="flex flex-col sm:flex-row gap-3">
                 <button
                   onClick={() => setShowManualForm(true)}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
+                  className="px-4 py-3 bg-blue-600 text-white rounded-lg active:bg-blue-700 lg:hover:bg-blue-700 transition-colors text-sm min-h-[44px] touch-manipulation font-medium"
+                  style={{ WebkitTapHighlightColor: 'transparent' }}
                 >
                   Add First Expense
                 </button>
                 <a
                   href="/sample-statement.csv"
                   download
-                  className="px-4 py-2 border border-blue-300 text-blue-700 rounded-lg hover:bg-blue-50 transition-colors text-sm"
+                  className="px-4 py-3 border border-blue-300 text-blue-700 rounded-lg active:bg-blue-50 lg:hover:bg-blue-50 transition-colors text-sm min-h-[44px] flex items-center justify-center touch-manipulation font-medium"
+                  style={{ WebkitTapHighlightColor: 'transparent' }}
                 >
                   Download Sample CSV
                 </a>
@@ -756,14 +758,14 @@ const Expenses: React.FC = () => {
 
             {/* Enhanced Filters */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-              <div className="relative">
-                <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+              <div className="relative lg:col-span-2">
+                <Search className="absolute left-3 top-3.5 lg:top-3 h-4 w-4 text-gray-400" />
                 <input
                   type="text"
                   placeholder="Search description, category, or amount..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full pl-10 pr-4 py-3 lg:py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-base lg:text-sm min-h-[44px]"
                 />
               </div>
 
@@ -974,19 +976,20 @@ const Expenses: React.FC = () => {
       {/* Manual Expense Modal */}
       {showManualForm && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl max-w-md w-full">
-            <div className="p-6 border-b border-gray-200">
+          <div className="bg-white rounded-xl lg:max-w-md w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-4 lg:p-6 border-b border-gray-200">
               <div className="flex items-center justify-between">
-                <h2 className="text-xl font-bold text-gray-900">Add Manual Expense</h2>
+                <h2 className="text-lg lg:text-xl font-bold text-gray-900">Add Manual Expense</h2>
                 <button
                   onClick={() => setShowManualForm(false)}
-                  className="text-gray-400 hover:text-gray-600"
+                  className="text-gray-400 active:text-gray-600 lg:hover:text-gray-600 p-2 rounded-lg min-h-[44px] min-w-[44px] flex items-center justify-center touch-manipulation"
+                  style={{ WebkitTapHighlightColor: 'transparent' }}
                 >
                   <X className="h-6 w-6" />
                 </button>
               </div>
             </div>
-            <form onSubmit={handleManualSubmit} className="p-6 space-y-4">
+            <form onSubmit={handleManualSubmit} className="p-4 lg:p-6 space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Description
@@ -1005,7 +1008,7 @@ const Expenses: React.FC = () => {
                     }));
                   }}
                   placeholder="e.g., Tesco grocery shopping, Shell gas station, Starbucks coffee..."
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-3 lg:py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-base lg:text-sm min-h-[44px]"
                   required
                 />
                 {manualExpense.description && getSuggestedCategory(manualExpense.description) !== 'Other' && (
@@ -1025,7 +1028,7 @@ const Expenses: React.FC = () => {
                   placeholder="0.00"
                   min="0"
                   step="0.01"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-3 lg:py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-base lg:text-sm min-h-[44px]"
                   required
                 />
               </div>
@@ -1036,7 +1039,7 @@ const Expenses: React.FC = () => {
                 <select
                   value={manualExpense.category}
                   onChange={(e) => setManualExpense(prev => ({ ...prev, category: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-3 lg:py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-base lg:text-sm min-h-[44px]"
                 >
                   {expenseCategories.map(cat => (
                     <option key={cat} value={cat}>{cat}</option>
@@ -1051,21 +1054,23 @@ const Expenses: React.FC = () => {
                   type="date"
                   value={manualExpense.date}
                   onChange={(e) => setManualExpense(prev => ({ ...prev, date: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-3 lg:py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-base lg:text-sm min-h-[44px]"
                   required
                 />
               </div>
-              <div className="flex gap-3 pt-4">
+              <div className="flex flex-col sm:flex-row gap-3 pt-4">
                 <button
                   type="submit"
-                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                  className="flex-1 px-4 py-3 lg:py-2 bg-blue-600 text-white rounded-lg active:bg-blue-700 lg:hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 min-h-[44px] touch-manipulation font-medium"
+                  style={{ WebkitTapHighlightColor: 'transparent' }}
                 >
                   Add Expense
                 </button>
                 <button
                   type="button"
                   onClick={() => setShowManualForm(false)}
-                  className="px-4 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2"
+                  className="px-4 py-3 lg:py-2 text-gray-700 border border-gray-300 rounded-lg active:bg-gray-50 lg:hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 min-h-[44px] touch-manipulation font-medium"
+                  style={{ WebkitTapHighlightColor: 'transparent' }}
                 >
                   Cancel
                 </button>

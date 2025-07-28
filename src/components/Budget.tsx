@@ -404,22 +404,23 @@ const Budget: React.FC = () => {
 
       {/* Budget Creation Form */}
       {showBudgetForm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-6 border-b border-gray-200">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 lg:p-4">
+          <div className="bg-white rounded-xl lg:max-w-2xl w-full max-h-[90vh] lg:max-h-[90vh] overflow-y-auto">
+            <div className="p-4 lg:p-6 border-b border-gray-200">
               <div className="flex items-center justify-between">
-                <h2 className="text-xl font-bold text-gray-900">Create Monthly Budget</h2>
+                <h2 className="text-lg lg:text-xl font-bold text-gray-900">Create Monthly Budget</h2>
                 <button
                   onClick={() => setShowBudgetForm(false)}
-                  className="text-gray-400 hover:text-gray-600"
+                  className="text-gray-400 active:text-gray-600 lg:hover:text-gray-600 p-2 rounded-lg min-h-[44px] min-w-[44px] flex items-center justify-center touch-manipulation"
+                  style={{ WebkitTapHighlightColor: 'transparent' }}
                 >
                   <X className="h-6 w-6" />
                 </button>
               </div>
             </div>
             
-            <form onSubmit={handleCreateBudget} className="p-6 space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <form onSubmit={handleCreateBudget} className="p-4 lg:p-6 space-y-4 lg:space-y-6">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     User
@@ -427,7 +428,7 @@ const Budget: React.FC = () => {
                   <select
                     value={budgetFormData.userId}
                     onChange={(e) => setBudgetFormData(prev => ({ ...prev, userId: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-3 lg:py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-base lg:text-sm min-h-[44px]"
                     required
                   >
                     <option value="">Select User</option>
@@ -457,7 +458,7 @@ const Budget: React.FC = () => {
                     placeholder="2000"
                     min="0"
                     step="0.01"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-3 lg:py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-base lg:text-sm min-h-[44px]"
                     required
                   />
                 </div>
@@ -465,7 +466,7 @@ const Budget: React.FC = () => {
 
               <div>
                 <h3 className="text-lg font-semibold text-gray-900 mb-4">Category Allocation</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                   {expenseCategories.map(category => (
                     <div key={category}>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -481,7 +482,7 @@ const Budget: React.FC = () => {
                         placeholder="0"
                         min="0"
                         step="0.01"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-3 py-3 lg:py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-base lg:text-sm min-h-[44px]"
                       />
                     </div>
                   ))}
@@ -533,22 +534,24 @@ const Budget: React.FC = () => {
                 </div>
               </div>
 
-              <div className="flex gap-3 pt-4">
+              <div className="flex flex-col sm:flex-row gap-3 pt-4">
                 <button
                   type="submit"
                   disabled={isOverBudget}
-                  className={`flex-1 px-4 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-offset-2 transition-colors ${
+                  className={`flex-1 px-4 py-3 lg:py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-offset-2 transition-colors min-h-[44px] touch-manipulation font-medium ${
                     isOverBudget
                       ? 'bg-gray-400 text-gray-200 cursor-not-allowed'
-                      : 'bg-blue-600 text-white hover:bg-blue-700 focus:ring-blue-500'
+                      : 'bg-blue-600 text-white active:bg-blue-700 lg:hover:bg-blue-700 focus:ring-blue-500'
                   }`}
+                  style={{ WebkitTapHighlightColor: 'transparent' }}
                 >
                   {isOverBudget ? 'Fix Allocations First' : 'Create Budget'}
                 </button>
                 <button
                   type="button"
                   onClick={() => setShowBudgetForm(false)}
-                  className="px-4 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2"
+                  className="px-4 py-3 lg:py-2 text-gray-700 border border-gray-300 rounded-lg active:bg-gray-50 lg:hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 min-h-[44px] touch-manipulation font-medium"
+                  style={{ WebkitTapHighlightColor: 'transparent' }}
                 >
                   Cancel
                 </button>

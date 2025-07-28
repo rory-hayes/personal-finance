@@ -124,11 +124,11 @@ const DashboardCardWrapper: React.FC<DashboardCardWrapperProps> = ({
 
   const getSizeClass = (size: string) => {
     switch (size) {
-      case 'quarter': return 'col-span-3 row-span-1';
-      case 'half': return 'col-span-6 row-span-1';
-      case 'full': return 'col-span-12 row-span-1';
-      case 'tall': return 'col-span-6 row-span-2';
-      default: return 'col-span-6 row-span-1';
+      case 'quarter': return 'col-span-1 lg:col-span-3 row-span-1';
+      case 'half': return 'col-span-1 lg:col-span-6 row-span-1';
+      case 'full': return 'col-span-1 lg:col-span-12 row-span-1';
+      case 'tall': return 'col-span-1 lg:col-span-6 lg:row-span-2';
+      default: return 'col-span-1 lg:col-span-6 row-span-1';
     }
   };
 
@@ -229,18 +229,19 @@ const DashboardCardWrapper: React.FC<DashboardCardWrapperProps> = ({
     <div className={`relative ${getSizeClass(card.size)}`}>
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 min-h-0 flex flex-col">
         {/* Card Header */}
-        <div className="flex items-center justify-between p-4 border-b border-gray-100">
-          <h3 className="text-lg font-semibold text-gray-900">
+        <div className="flex items-center justify-between p-3 lg:p-4 border-b border-gray-100">
+          <h3 className="text-base lg:text-lg font-semibold text-gray-900 truncate pr-2">
             {card.config?.title || cardDefinition.title}
           </h3>
           
           {/* Card Menu */}
-          <div className="relative">
+          <div className="relative flex-shrink-0">
             <button
               ref={buttonRef}
               onClick={() => setShowMenu(!showMenu)}
-              className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-md transition-colors min-w-[40px] min-h-[40px] flex items-center justify-center"
+              className="p-2 text-gray-400 active:text-gray-600 lg:hover:text-gray-600 active:bg-gray-100 lg:hover:bg-gray-100 rounded-md transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center touch-manipulation"
               title="Card options"
+              style={{ WebkitTapHighlightColor: 'transparent' }}
             >
               <MoreVertical className="h-5 w-5" />
             </button>
@@ -305,7 +306,7 @@ const DashboardCardWrapper: React.FC<DashboardCardWrapperProps> = ({
         </div>
         
         {/* Card Content */}
-        <div className="p-4 flex-1 min-h-0">
+        <div className="p-3 lg:p-4 flex-1 min-h-0">
           {renderCardContent()}
         </div>
       </div>
