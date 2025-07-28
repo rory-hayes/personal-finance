@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useFinanceData } from '../hooks/useFinanceData';
+import { showToast } from '../utils/toast';
 
 /**
  * Component for editing an existing monthly budget.  It allows users to
@@ -40,9 +41,11 @@ const BudgetEditor: React.FC<{ budgetId: string; onClose: () => void }> = ({ bud
       .map((c) => ({ category: c.category.trim(), allocatedAmount: parseFloat(c.allocated) || 0 }));
     try {
       await updateBudget(budgetId, parsedTotal, categoryBreakdown);
+      showToast.success('Budget updated successfully!');
       onClose();
     } catch (error) {
       console.error('Error updating budget:', error);
+      showToast.error('Failed to update budget. Please try again.');
     }
   };
 

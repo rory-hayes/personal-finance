@@ -31,7 +31,6 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, onTabChange }) => 
     { id: 'goals', label: 'Goals', icon: Target },
     { id: 'users', label: 'Household', icon: Users },
     { id: 'budget', label: 'Budget', icon: Wallet },
-    { id: 'settings', label: 'Settings', icon: Settings },
   ];
 
   const handleSignOut = async () => {
@@ -81,10 +80,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, onTabChange }) => 
             
             {/* User Profile */}
             <div className="mt-6 px-4">
-              <button
-                onClick={() => onTabChange('settings')}
-                className="flex items-center w-full text-left"
-              >
+              <div className="flex items-center w-full">
                 <div className="flex-shrink-0">
                   <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
                     <User className="h-6 w-6 text-blue-600" />
@@ -98,7 +94,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, onTabChange }) => 
                     {profile?.household_size || 1} member{(profile?.household_size || 1) > 1 ? 's' : ''}
                   </p>
                 </div>
-              </button>
+              </div>
             </div>
 
             {/* Navigation */}

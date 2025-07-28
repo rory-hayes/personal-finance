@@ -10,7 +10,7 @@ import Assets from './components/Assets';
 import Goals from './components/Goals';
 import Users from './components/Users';
 import Budget from './components/Budget';
-import Settings from './components/Settings';
+
 import SupabaseStatusNotification from './components/SupabaseStatusNotification';
 
 // Main app content component (after authentication)
@@ -86,8 +86,6 @@ const AppContent: React.FC = () => {
         return <Users />;
       case 'budget':
         return <Budget />;
-      case 'settings':
-        return <Settings />;
       default:
         return <Dashboard />;
     }

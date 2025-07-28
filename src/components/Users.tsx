@@ -242,9 +242,10 @@ const Users: React.FC = () => {
     if (editingNameUser && newName.trim()) {
       try {
         await updateUser(editingNameUser, { name: newName.trim() });
+        showToast.success('Member name updated successfully!');
       } catch (e) {
         console.error('Failed to update name', e);
-        alert('Failed to update name');
+        showToast.error('Failed to update member name. Please try again.');
         return;
       }
     }
