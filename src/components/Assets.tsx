@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Plus, Edit3, Trash2, TrendingUp, Home, Car, PieChart, DollarSign } from 'lucide-react';
 import { useFinanceData } from '../hooks/useFinanceData';
+import { showToast } from '../utils/toast';
 import { Asset } from '../types';
 
 const Assets: React.FC = () => {
@@ -93,18 +94,18 @@ const Assets: React.FC = () => {
     try {
       if (editingAsset) {
         await updateAsset(editingAsset.id, assetData);
-        alert('Asset updated successfully!');
+        showToast.updated('Asset');
         setEditingAsset(null);
       } else {
         await addAsset(assetData);
-        alert('Asset added successfully!');
+        showToast.saved('Asset');
       }
 
       setFormData({ name: '', category: 'Other', value: '' });
       setShowAddForm(false);
     } catch (error) {
       console.error('Error saving asset:', error);
-      alert('Failed to save asset. Please try again.');
+      showToast.error('Failed to save asset. Please try again.');
     }
   };
 
@@ -152,7 +153,7 @@ const Assets: React.FC = () => {
       setAssetToDelete(null);
     } catch (error) {
       console.error('❌ Failed to delete asset:', error);
-      alert('Failed to delete asset. Please try again.');
+      showToast.error('Failed to delete asset. Please try again.');
     }
   };
 

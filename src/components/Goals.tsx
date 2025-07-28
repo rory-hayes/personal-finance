@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Plus, Target, Calendar, Euro, TrendingUp, Edit3, Trash2 } from 'lucide-react';
 import { useFinanceData } from '../hooks/useFinanceData';
 import { useFormValidation, commonValidationRules } from '../hooks/useFormValidation';
+import { showToast } from '../utils/toast';
 import { Goal } from '../types';
 import { 
   getTodayDateString, 
@@ -102,8 +103,7 @@ const Goals: React.FC = () => {
       clearAllErrors();
     } catch (error) {
       console.error('Error saving goal:', error);
-      // Could add a more sophisticated error display here
-      alert('Failed to save goal. Please try again.');
+      showToast.error('Failed to save goal. Please try again.');
     }
   };
 
@@ -152,7 +152,7 @@ const Goals: React.FC = () => {
       setGoalToDelete(null);
     } catch (error) {
       console.error('❌ Failed to delete goal:', error);
-      alert('Failed to delete goal. Please try again.');
+      showToast.error('Failed to delete goal. Please try again.');
     }
   };
 

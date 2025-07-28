@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts';
 import { Calendar, TrendingUp, DollarSign, Plus, Trash2 } from 'lucide-react';
+import { showToast } from '../../../utils/toast';
 
 interface VestingSchedulesCardProps {
   card: any;
@@ -23,7 +24,7 @@ const VestingSchedulesCard: React.FC<VestingSchedulesCardProps> = ({
         await deleteVestingSchedule(scheduleId);
         // No need for alert - the UI will update automatically
       } catch (error) {
-        alert('Failed to delete vesting schedule');
+        showToast.deleteFailed('vesting schedule');
         console.error('Delete error:', error);
       }
     }

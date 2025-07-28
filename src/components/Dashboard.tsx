@@ -11,6 +11,7 @@ import {
 import { useFinanceData } from '../hooks/useFinanceData';
 import { useDashboardConfig } from '../hooks/useDashboardConfig';
 import { useAuth } from '../contexts/AuthContext';
+import { showToast } from '../utils/toast';
 import { 
   CardType, 
   CardSize, 
@@ -116,7 +117,7 @@ const Dashboard: React.FC = () => {
   // Add selected cards to dashboard
   const addSelectedCards = async () => {
     if (selectedCards.size === 0) {
-      alert('Please select at least one card to add');
+      showToast.validationError('Please select at least one card to add');
       return;
     }
 
@@ -162,7 +163,7 @@ const Dashboard: React.FC = () => {
 
     } catch (error) {
       console.error('💥 Error adding cards to dashboard:', error);
-      alert('Failed to add cards to the dashboard. Please try again.');
+      showToast.error('Failed to add cards to the dashboard. Please try again.');
       // Don't close modal on error so user can retry
     }
   };
@@ -202,7 +203,7 @@ const Dashboard: React.FC = () => {
       const hasAllocations = Object.values(allocationAmounts).some(amount => parseFloat(amount) > 0);
       
       if (!hasAllocations) {
-        alert('Please enter at least one allocation amount');
+        showToast.validationError('Please enter at least one allocation amount');
         return;
       }
 
@@ -234,10 +235,10 @@ const Dashboard: React.FC = () => {
       
       setShowAllocationModal(false);
       setAllocationAmounts({});
-      alert('Monthly allocation completed successfully!');
+      showToast.success('Monthly allocation completed successfully!');
     } catch (error) {
       console.error('Error processing allocation:', error);
-      alert('Error processing allocation. Please try again.');
+      showToast.error('Error processing allocation. Please try again.');
     }
   };
 

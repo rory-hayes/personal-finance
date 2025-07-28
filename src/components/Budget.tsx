@@ -116,7 +116,7 @@ const Budget: React.FC = () => {
       const totalCategoryAmount = categoryBreakdown.reduce((sum, cat) => sum + cat.allocatedAmount, 0);
       
       if (totalCategoryAmount > totalBudget) {
-        setFeedbackMessage({ type: 'error', message: 'Category allocations exceed total budget' });
+        setFeedbackMessage({ type: 'error', message: `Category allocations (€${totalCategoryAmount.toLocaleString()}) exceed total budget (€${totalBudget.toLocaleString()})` });
         return;
       }
 
@@ -536,9 +536,14 @@ const Budget: React.FC = () => {
               <div className="flex gap-3 pt-4">
                 <button
                   type="submit"
-                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                  disabled={isOverBudget}
+                  className={`flex-1 px-4 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-offset-2 transition-colors ${
+                    isOverBudget
+                      ? 'bg-gray-400 text-gray-200 cursor-not-allowed'
+                      : 'bg-blue-600 text-white hover:bg-blue-700 focus:ring-blue-500'
+                  }`}
                 >
-                  Create Budget
+                  {isOverBudget ? 'Fix Allocations First' : 'Create Budget'}
                 </button>
                 <button
                   type="button"

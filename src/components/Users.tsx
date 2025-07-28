@@ -163,7 +163,7 @@ const Users: React.FC = () => {
     
     const amount = parseFloat(allocationData.amount);
     if (isNaN(amount) || amount <= 0) {
-      alert('Please enter a valid amount');
+      showToast.validationError('Please enter a valid amount');
       return;
     }
 
@@ -216,11 +216,11 @@ const Users: React.FC = () => {
           console.log('✅ Income updated successfully');
         } catch (error) {
           console.error('❌ Failed to update income:', error);
-          alert('Failed to update income. Please try again.');
+          showToast.updateFailed('income');
           return; // Don't close the editor on error
         }
       } else {
-        alert('Please enter a valid positive number for monthly income.');
+        showToast.validationError('Please enter a valid positive number for monthly income.');
         return;
       }
       setEditingUser(null);
@@ -281,7 +281,7 @@ const Users: React.FC = () => {
       setTransferTarget('');
     } catch (error) {
       console.error('❌ Failed to delete:', error);
-      alert(`Failed to delete ${itemToDelete.type}. Please try again.`);
+      showToast.deleteFailed(itemToDelete.type);
     }
   };
 

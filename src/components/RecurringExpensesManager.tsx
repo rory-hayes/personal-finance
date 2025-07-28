@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useFinanceData } from '../hooks/useFinanceData';
+import { showToast } from '../utils/toast';
 import { Plus, Edit3, Trash2 } from 'lucide-react';
 
 /**
@@ -50,7 +51,7 @@ const RecurringExpensesManager: React.FC = () => {
     e.preventDefault();
     const amount = parseFloat(formData.amount);
     if (!formData.description.trim() || isNaN(amount) || amount <= 0) {
-      alert('Please enter a valid description and amount');
+      showToast.validationError('Please enter a valid description and amount');
       return;
     }
     const payload = {
@@ -80,7 +81,7 @@ const RecurringExpensesManager: React.FC = () => {
     const exp = recurringExpenses.find((e) => e.id === id);
     if (!exp) {
       console.error('Expense not found for editing:', id);
-      alert('Error: Could not find expense to edit. Please refresh and try again.');
+      showToast.error('Could not find expense to edit. Please refresh and try again.');
       return;
     }
     setEditingId(id);

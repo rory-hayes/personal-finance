@@ -34,12 +34,23 @@ const BudgetEditor: React.FC<{ budgetId: string; onClose: () => void }> = ({ bud
     e.preventDefault();
     const parsedTotal = parseFloat(totalAmount);
     if (isNaN(parsedTotal) || parsedTotal <= 0) {
-      alert('Please enter a valid total budget');
+      showToast.error('Please enter a valid total budget');
       return;
     }
+
+    // Calculate total allocated across categories
     const categoryBreakdown = categories
       .filter((c) => c.category.trim())
       .map((c) => ({ category: c.category.trim(), allocatedAmount: parseFloat(c.allocated) || 0 }));
+    
+    const totalAllocated = categoryBreakdown.reduce((sum, cat) => sum + cat.allocatedAmount, 0);
+    
+    // Prevent submission if allocations exceed budget
+    if (totalAllocated > parsedTotal) {
+      showToast.error(`Category allocations (€${totalAllocated.toLocaleString()}) exceed total budget (€${parsedTotal.toLocaleString()})`);
+      return;
+    }
+
     try {
       await updateBudget(budgetId, parsedTotal, categoryBreakdown);
       showToast.success('Budget updated successfully!');
@@ -50,10 +61,17 @@ const BudgetEditor: React.FC<{ budgetId: string; onClose: () => void }> = ({ bud
     }
   };
 
+  // Calculate totals for validation and display
+  const totalBudget = parseFloat(totalAmount) || 0;
+  const totalAllocated = categories.reduce((sum, cat) => sum + (parseFloat(cat.allocated) || 0), 0);
+  const remainingBudget = totalBudget - totalAllocated;
+  const isOverBudget = totalAllocated > totalBudget;
+
   return (
     <div className="bg-white rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-      <div className="p-6 border-b border-gray-200">
-        <div className="flex items-center justify-between">
+      {/* Sticky Header with Total Budget */}
+      <div className="sticky top-0 bg-white z-10 p-6 border-b border-gray-200 shadow-sm">
+        <div className="flex items-center justify-between mb-4">
           <h3 className="text-xl font-bold text-gray-900">Edit Budget</h3>
           <button
             onClick={onClose}
@@ -62,7 +80,44 @@ const BudgetEditor: React.FC<{ budgetId: string; onClose: () => void }> = ({ bud
             <X className="h-6 w-6" />
           </button>
         </div>
+        
+        {/* Budget Summary - Always Visible */}
+        <div className={`p-4 rounded-lg border-2 ${
+          isOverBudget 
+            ? 'bg-red-50 border-red-200' 
+            : remainingBudget === 0 && totalBudget > 0
+            ? 'bg-green-50 border-green-200'
+            : 'bg-blue-50 border-blue-200'
+        }`}>
+          <div className="grid grid-cols-3 gap-4 text-sm">
+            <div className="text-center">
+              <div className="font-medium text-gray-700">Total Budget</div>
+              <div className="text-lg font-bold text-gray-900">€{totalBudget.toLocaleString()}</div>
+            </div>
+            <div className="text-center">
+              <div className="font-medium text-gray-700">Allocated</div>
+              <div className={`text-lg font-bold ${isOverBudget ? 'text-red-600' : 'text-gray-900'}`}>
+                €{totalAllocated.toLocaleString()}
+              </div>
+            </div>
+            <div className="text-center">
+              <div className="font-medium text-gray-700">Remaining</div>
+              <div className={`text-lg font-bold ${
+                isOverBudget ? 'text-red-600' : remainingBudget === 0 ? 'text-green-600' : 'text-blue-600'
+              }`}>
+                €{remainingBudget.toLocaleString()}
+              </div>
+            </div>
+          </div>
+          
+          {isOverBudget && (
+            <div className="mt-3 p-2 bg-red-100 border border-red-300 rounded text-red-800 text-sm">
+              ⚠️ <strong>Over Budget!</strong> Reduce allocations by €{(totalAllocated - totalBudget).toLocaleString()}
+            </div>
+          )}
+        </div>
       </div>
+
       <form onSubmit={handleSubmit} className="p-6 space-y-4">
         <div>
           <label htmlFor="budget-total" className="block text-sm font-medium text-gray-700">Total Budget (€)</label>
@@ -106,9 +161,14 @@ const BudgetEditor: React.FC<{ budgetId: string; onClose: () => void }> = ({ bud
         <div className="flex gap-3 pt-4">
           <button
             type="submit"
-            className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+            disabled={isOverBudget}
+            className={`flex-1 px-4 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-offset-2 transition-colors ${
+              isOverBudget
+                ? 'bg-gray-400 text-gray-200 cursor-not-allowed'
+                : 'bg-blue-600 text-white hover:bg-blue-700 focus:ring-blue-500'
+            }`}
           >
-            Update Budget
+            {isOverBudget ? 'Fix Allocations First' : 'Update Budget'}
           </button>
           <button
             type="button"
