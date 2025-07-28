@@ -104,6 +104,68 @@ const Expenses: React.FC = () => {
     'Healthcare', 'Entertainment', 'Shopping', 'Bills', 'Insurance', 'Other'
   ];
 
+  // Helper function for automatic category suggestions
+  const getSuggestedCategory = (description: string): string => {
+    const desc = description.toLowerCase();
+    
+    // Food & Dining
+    if (desc.includes('grocery') || desc.includes('supermarket') || desc.includes('food') ||
+        desc.includes('whole foods') || desc.includes('trader joe') || desc.includes('walmart') ||
+        desc.includes('costco') || desc.includes('target') || desc.includes('safeway') ||
+        desc.includes('kroger') || desc.includes('publix') || desc.includes('aldi') ||
+        desc.includes('tesco') || desc.includes('lidl') || desc.includes('asda')) {
+      return 'Groceries';
+    }
+    
+    if (desc.includes('restaurant') || desc.includes('cafe') || desc.includes('dining') ||
+        desc.includes('mcdonald') || desc.includes('starbucks') || desc.includes('subway') ||
+        desc.includes('pizza') || desc.includes('burger') || desc.includes('taco') ||
+        desc.includes('kfc') || desc.includes('domino') || desc.includes('chipotle') ||
+        desc.includes('dunkin') || desc.includes('coffee') || desc.includes('bar ') ||
+        desc.includes('pub ') || desc.includes('grill') || desc.includes('bistro') ||
+        desc.includes('diner') || desc.includes('bakery') || desc.includes('buffet')) {
+      return 'Dining';
+    }
+    
+    // Transportation
+    if (desc.includes('gas') || desc.includes('fuel') || desc.includes('shell') || 
+        desc.includes('bp') || desc.includes('exxon') || desc.includes('chevron') ||
+        desc.includes('mobil') || desc.includes('uber') || desc.includes('lyft') || 
+        desc.includes('taxi') || desc.includes('parking') || desc.includes('toll')) {
+      return 'Transportation';
+    }
+    
+    // Utilities & Bills
+    if (desc.includes('electric') || desc.includes('water') || desc.includes('gas bill') ||
+        desc.includes('internet') || desc.includes('phone') || desc.includes('utility') ||
+        desc.includes('rent') || desc.includes('mortgage') || desc.includes('insurance')) {
+      return 'Bills';
+    }
+    
+    // Healthcare
+    if (desc.includes('pharmacy') || desc.includes('doctor') || desc.includes('hospital') ||
+        desc.includes('clinic') || desc.includes('dental') || desc.includes('medical') ||
+        desc.includes('health') || desc.includes('prescription')) {
+      return 'Healthcare';
+    }
+    
+    // Entertainment
+    if (desc.includes('netflix') || desc.includes('spotify') || desc.includes('cinema') ||
+        desc.includes('movie') || desc.includes('theater') || desc.includes('game') ||
+        desc.includes('entertainment') || desc.includes('subscription')) {
+      return 'Entertainment';
+    }
+    
+    // Shopping
+    if (desc.includes('amazon') || desc.includes('shop') || desc.includes('store') ||
+        desc.includes('mall') || desc.includes('clothes') || desc.includes('clothing') ||
+        desc.includes('fashion') || desc.includes('electronics')) {
+      return 'Shopping';
+    }
+    
+    return 'Other';
+  };
+
   const handleFiles = useCallback(async (files: FileList) => {
     setUploading(true);
     const results: typeof uploadResults = [];
@@ -399,302 +461,506 @@ const Expenses: React.FC = () => {
         </p>
       </div>
 
-      {/* Action Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <button
-          onClick={() => setShowManualForm(true)}
-          className="bg-white rounded-xl p-6 shadow-sm border border-gray-200 hover:border-blue-300 hover:shadow-md transition-all text-left"
-        >
-          <div className="flex items-center gap-4">
+      {/* First-time user guidance */}
+      {transactions.length === 0 && (
+        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-6 border border-blue-200">
+          <div className="flex items-start gap-4">
             <div className="p-3 bg-blue-100 rounded-lg">
-              <Plus className="h-6 w-6 text-blue-600" />
+              <Info className="h-6 w-6 text-blue-600" />
             </div>
-            <div>
-              <h3 className="font-semibold text-gray-900">Add Manual Expense</h3>
-              <p className="text-sm text-gray-600">Quickly add individual expenses</p>
-            </div>
-          </div>
-        </button>
-
-        <button
-          onClick={() => setShowRecurringForm(true)}
-          className="bg-white rounded-xl p-6 shadow-sm border border-gray-200 hover:border-green-300 hover:shadow-md transition-all text-left"
-        >
-          <div className="flex items-center gap-4">
-            <div className="p-3 bg-green-100 rounded-lg">
-              <Calendar className="h-6 w-6 text-green-600" />
-            </div>
-            <div>
-              <h3 className="font-semibold text-gray-900">Recurring Expenses</h3>
-              <p className="text-sm text-gray-600">Set up bills and regular costs</p>
-            </div>
-          </div>
-        </button>
-
-        <button
-          onClick={() => setShowRecurringManagement(true)}
-          className="bg-white rounded-xl p-6 shadow-sm border border-gray-200 hover:border-green-300 hover:shadow-md transition-all text-left"
-        >
-          <div className="flex items-center gap-4">
-            <div className="p-3 bg-green-100 rounded-lg">
-              <Repeat className="h-6 w-6 text-green-600" />
-            </div>
-            <div>
-              <h3 className="font-semibold text-gray-900">Manage Recurring</h3>
-              <p className="text-sm text-gray-600">Edit or cancel scheduled expenses</p>
-            </div>
-          </div>
-        </button>
-
-
-
-        <button
-          onClick={() => setShowExpenseHistory(!showExpenseHistory)}
-          className="bg-white rounded-xl p-6 shadow-sm border border-gray-200 hover:border-orange-300 hover:shadow-md transition-all text-left"
-        >
-          <div className="flex items-center gap-4">
-            <div className="p-3 bg-orange-100 rounded-lg">
-              <History className="h-6 w-6 text-orange-600" />
-            </div>
-            <div>
-              <h3 className="font-semibold text-gray-900">Expense History</h3>
-              <p className="text-sm text-gray-600">View and manage your expenses</p>
-            </div>
-          </div>
-        </button>
-      </div>
-
-      {/* Expense History Section */}
-      {showExpenseHistory && (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <div className="flex items-center justify-between mb-6">
-            <h3 className="text-lg font-semibold text-gray-900">Expense History</h3>
-            <p className="text-sm text-gray-600">
-{transactions.filter(t => t.amount < 0).length} expenses found ({transactions.length} total transactions)
-            </p>
-          </div>
-
-          {/* Filters */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-            <div className="relative">
-              <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Search expenses..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-
-            <select
-              value={selectedCategory}
-              onChange={(e) => setSelectedCategory(e.target.value)}
-              className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="All">All Categories</option>
-              {expenseCategories.map(cat => (
-                <option key={cat} value={cat}>{cat}</option>
-              ))}
-            </select>
-
-            <select
-              value={dateFilter}
-              onChange={(e) => setDateFilter(e.target.value)}
-              className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="all">All Time</option>
-              <option value="today">Today</option>
-              <option value="week">This Week</option>
-              <option value="month">This Month</option>
-              <option value="quarter">This Quarter</option>
-              <option value="year">This Year</option>
-            </select>
-
-            <button
-              onClick={() => {
-                setSearchTerm('');
-                setSelectedCategory('All');
-                setDateFilter('all');
-              }}
-              className="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50"
-            >
-              Clear Filters
-            </button>
-          </div>
-
-          {/* Debug Info */}
-          {transactions.length === 0 && (
-            <div className="text-sm text-gray-500 mb-4">
-              ⚠️ No transactions loaded. Make sure you've uploaded and imported transactions.
-            </div>
-          )}
-
-          {/* Expenses List */}
-          <div className="space-y-3 max-h-96 overflow-y-auto">
-            {transactions
-              .filter(transaction => {
-                // Only show expenses (negative amounts)
-                if (transaction.amount >= 0) return false;
-                
-                // Search filter
-                if (searchTerm && !transaction.description.toLowerCase().includes(searchTerm.toLowerCase()) && 
-                    !transaction.category?.toLowerCase().includes(searchTerm.toLowerCase())) {
-                  return false;
-                }
-                
-                // Category filter
-                if (selectedCategory !== 'All' && transaction.category !== selectedCategory) {
-                  return false;
-                }
-                
-                // Date filter
-                if (dateFilter !== 'all') {
-                  const range = getDateRange(dateFilter as 'today' | 'week' | 'month' | 'quarter' | 'year');
-                  if (!isDateInRange(transaction.date, range.start, range.end)) {
-                    return false;
-                  }
-                }
-
-                // Nothing excluded this transaction, include it
-                return true;
-              })
-              .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-              .map((transaction) => (
-                <div key={transaction.id} className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition-colors">
-                  <div className="flex items-center justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3 mb-2">
-                        <div className="p-2 bg-red-100 rounded-full">
-                          <DollarSign className="h-4 w-4 text-red-600" />
-                        </div>
-                        <div>
-                          <h4 className="font-medium text-gray-900">{transaction.description}</h4>
-                          <p className="text-sm text-gray-600">
-                            {getRelativeDateString(transaction.date)} • {transaction.category}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                    
-                    <div className="flex items-center gap-4">
-                      <p className="text-lg font-bold text-red-600">
-                        €{Math.abs(transaction.amount).toLocaleString()}
-                      </p>
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={() => setEditingExpense(transaction)}
-                          className="p-2 text-gray-400 hover:text-blue-600 transition-colors"
-                          title="Edit expense"
-                        >
-                          <Edit3 className="h-4 w-4" />
-                        </button>
-                        <button
-                          onClick={() => {
-                            setExpenseToDelete(transaction);
-                            setShowDeleteConfirm(true);
-                          }}
-                          className="p-2 text-gray-400 hover:text-red-600 transition-colors"
-                          title="Delete expense"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ))
-            }
-            
-            {transactions.filter(t => t.amount < 0).length === 0 && (
-              <div className="text-center py-8">
-                <Receipt className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                <p className="text-gray-500 mb-2">No expenses found</p>
-                <p className="text-sm text-gray-400">Add your first expense to get started</p>
+            <div className="flex-1">
+              <h3 className="text-lg font-semibold text-blue-900 mb-2">Welcome! Let's get started</h3>
+              <p className="text-blue-800 mb-4">
+                Start tracking your expenses by uploading a bank statement or adding your first expense manually.
+              </p>
+              <div className="flex flex-wrap gap-3">
+                <button
+                  onClick={() => setShowManualForm(true)}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
+                >
+                  Add First Expense
+                </button>
+                <a
+                  href="/sample-statement.csv"
+                  download
+                  className="px-4 py-2 border border-blue-300 text-blue-700 rounded-lg hover:bg-blue-50 transition-colors text-sm"
+                >
+                  Download Sample CSV
+                </a>
               </div>
-            )}
+            </div>
           </div>
         </div>
       )}
 
-      {/* Upload Area */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8">
-        <div
-          className={`relative border-2 border-dashed rounded-xl p-12 text-center transition-colors ${
-            dragActive
-              ? 'border-blue-500 bg-blue-50'
-              : 'border-gray-300 hover:border-gray-400'
-          }`}
-          onDragEnter={handleDrag}
-          onDragLeave={handleDrag}
-          onDragOver={handleDrag}
-          onDrop={handleDrop}
-        >
-          <input
-            type="file"
-            multiple
-            accept=".csv,.pdf"
-            onChange={handleInputChange}
-            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-            disabled={uploading}
-          />
+      {/* Main Content Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        
+        {/* Left Panel: Manual & Recurring Options */}
+        <div className="space-y-6">
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+              <Plus className="h-5 w-5 text-blue-600" />
+              Quick Entry
+            </h3>
+            
+            <div className="space-y-3">
+              <button
+                onClick={() => setShowManualForm(true)}
+                className="w-full bg-blue-50 rounded-lg p-4 hover:bg-blue-100 transition-colors text-left"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-blue-100 rounded-lg">
+                    <DollarSign className="h-5 w-5 text-blue-600" />
+                  </div>
+                  <div>
+                    <h4 className="font-medium text-gray-900">Add Manual Expense</h4>
+                    <p className="text-sm text-gray-600">Perfect for cash purchases and receipts</p>
+                  </div>
+                </div>
+              </button>
 
-          <div className="space-y-4">
-            <div className="mx-auto w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center">
-              <UploadIcon className="h-6 w-6 text-gray-600" />
+              <button
+                onClick={() => setShowExpenseHistory(!showExpenseHistory)}
+                className="w-full bg-orange-50 rounded-lg p-4 hover:bg-orange-100 transition-colors text-left"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-orange-100 rounded-lg">
+                    <History className="h-5 w-5 text-orange-600" />
+                  </div>
+                  <div>
+                    <h4 className="font-medium text-gray-900">View Expense History</h4>
+                    <p className="text-sm text-gray-600">Search and filter your past expenses</p>
+                  </div>
+                </div>
+              </button>
+            </div>
+          </div>
+
+          {/* Combined Recurring Expenses Section */}
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+              <Repeat className="h-5 w-5 text-green-600" />
+              Recurring Expenses
+            </h3>
+            
+            <div className="space-y-3">
+              <button
+                onClick={() => setShowRecurringForm(true)}
+                className="w-full bg-green-50 rounded-lg p-4 hover:bg-green-100 transition-colors text-left"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-green-100 rounded-lg">
+                    <Calendar className="h-5 w-5 text-green-600" />
+                  </div>
+                  <div>
+                    <h4 className="font-medium text-gray-900">Add Recurring Expense</h4>
+                    <p className="text-sm text-gray-600">Set up bills, rent, subscriptions</p>
+                  </div>
+                </div>
+              </button>
+
+              <button
+                onClick={() => setShowRecurringManagement(true)}
+                className="w-full bg-gray-50 rounded-lg p-4 hover:bg-gray-100 transition-colors text-left"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-gray-100 rounded-lg">
+                    <Edit3 className="h-5 w-5 text-gray-600" />
+                  </div>
+                  <div className="flex-1">
+                    <h4 className="font-medium text-gray-900">Manage Recurring ({recurringTransactions.length})</h4>
+                    <p className="text-sm text-gray-600">Edit or cancel scheduled expenses</p>
+                  </div>
+                </div>
+              </button>
             </div>
 
-            <div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                {uploading ? 'Processing files...' : 'Drop files here or click to browse'}
-              </h3>
-              <p className="text-gray-600">
-                Supports CSV and PDF bank statements. Multiple files can be uploaded at once.
-              </p>
-            </div>
-
-            <div className="flex items-center justify-center gap-4 text-sm text-gray-500">
-              <div className="flex items-center gap-1">
-                <FileText className="h-4 w-4" />
-                CSV
-              </div>
-              <div className="flex items-center gap-1">
-                <FileText className="h-4 w-4" />
-                PDF
-              </div>
-            </div>
-
-            {uploading && (
-              <div className="flex items-center justify-center">
-                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+            {/* Quick Recurring Expenses Preview */}
+            {recurringTransactions.length > 0 && (
+              <div className="mt-4 p-3 bg-gray-50 rounded-lg">
+                <h5 className="text-sm font-medium text-gray-700 mb-2">Active Recurring:</h5>
+                <div className="space-y-1">
+                  {recurringTransactions.slice(0, 3).map((expense, index) => (
+                    <div key={index} className="flex justify-between text-sm">
+                      <span className="text-gray-600">{expense.template.description}</span>
+                      <span className="font-medium">€{Math.abs(expense.template.amount)}</span>
+                    </div>
+                  ))}
+                  {recurringTransactions.length > 3 && (
+                    <div className="text-xs text-gray-500 pt-1">
+                      +{recurringTransactions.length - 3} more...
+                    </div>
+                  )}
+                </div>
               </div>
             )}
           </div>
         </div>
 
-        {/* File Format Help */}
-        <div className="mt-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
-          <div className="flex items-start gap-3">
-            <Info className="h-5 w-5 text-blue-600 mt-0.5 flex-shrink-0" />
-            <div>
-              <h4 className="font-medium text-blue-900 mb-2">File Format Requirements</h4>
-              <div className="text-sm text-blue-800 space-y-2">
+        {/* Right Panel: File Upload */}
+        <div className="space-y-6">
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+              <UploadIcon className="h-5 w-5 text-purple-600" />
+              Bulk Import
+            </h3>
+            
+            <div
+              className={`relative border-2 border-dashed rounded-xl p-8 text-center transition-colors ${
+                dragActive
+                  ? 'border-purple-500 bg-purple-50'
+                  : 'border-gray-300 hover:border-purple-400 hover:bg-purple-50'
+              }`}
+              onDragEnter={handleDrag}
+              onDragLeave={handleDrag}
+              onDragOver={handleDrag}
+              onDrop={handleDrop}
+            >
+              <input
+                type="file"
+                multiple
+                accept=".csv,.pdf"
+                onChange={handleInputChange}
+                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                disabled={uploading}
+              />
+
+              <div className="space-y-4">
+                <div className="mx-auto w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
+                  <UploadIcon className="h-6 w-6 text-purple-600" />
+                </div>
+
                 <div>
-                  <strong>CSV Files:</strong> Should contain columns for Date, Description, and Amount
-                  <ul className="list-disc list-inside mt-1 ml-2 text-blue-700">
-                    <li><strong>Date formats:</strong> YYYY-MM-DD, DD/MM/YYYY, MM/DD/YYYY, DD.MM.YYYY</li>
-                    <li><strong>Amount:</strong> Can include currency symbols (€, $), negative values in parentheses</li>
-                    <li><strong>Example row:</strong> "2024-01-15","Grocery Store","-25.50"</li>
-                  </ul>
+                  <h4 className="text-lg font-medium text-gray-900 mb-2">
+                    {uploading ? 'Processing files...' : 'Upload Bank Statements'}
+                  </h4>
+                  <p className="text-gray-600 text-sm">
+                    Drop CSV or PDF files here, or click to browse. Supports multiple files.
+                  </p>
                 </div>
-                <div>
-                  <strong>PDF Files:</strong> Bank statements with transaction data (basic text extraction)
+
+                <div className="flex items-center justify-center gap-4 text-sm text-gray-500">
+                  <div className="flex items-center gap-1">
+                    <FileText className="h-4 w-4" />
+                    CSV
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <FileText className="h-4 w-4" />
+                    PDF
+                  </div>
                 </div>
-                <div className="mt-3 p-2 bg-blue-100 rounded">
-                  <strong>💡 Tip:</strong> In the review modal, you can edit dates, amounts, descriptions, and toggle between income/expense before importing.
-                </div>
+
+                {uploading && (
+                  <div className="flex items-center justify-center">
+                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-purple-600"></div>
+                  </div>
+                )}
               </div>
             </div>
+
+            {/* Upload Tips - Collapsible */}
+            <details className="mt-4">
+              <summary className="cursor-pointer text-sm font-medium text-gray-700 hover:text-gray-900">
+                📋 Upload Guidelines & Tips
+              </summary>
+              <div className="mt-3 space-y-2 text-sm text-gray-600 bg-gray-50 rounded-lg p-3">
+                <div>
+                  <strong>CSV Format:</strong> Should include columns for Date, Description, and either Amount (with +/- signs) or separate Debit/Credit columns.
+                </div>
+                <div>
+                  <strong>PDF Statements:</strong> We'll extract transaction data automatically. Works best with standard bank statement formats.
+                </div>
+                <div>
+                  <strong>Multiple Files:</strong> Upload statements from different months or accounts simultaneously.
+                </div>
+              </div>
+            </details>
+          </div>
+
+          {/* Visual Summary for Uploaded Transactions */}
+          {transactions.length > 0 && (
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Quick Overview</h3>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div className="bg-red-50 rounded-lg p-4">
+                  <div className="text-2xl font-bold text-red-600">
+                    €{Math.abs(transactions.filter(t => t.amount < 0).reduce((sum, t) => sum + t.amount, 0)).toLocaleString()}
+                  </div>
+                  <div className="text-sm text-red-700">This Month's Expenses</div>
+                </div>
+                
+                <div className="bg-blue-50 rounded-lg p-4">
+                  <div className="text-2xl font-bold text-blue-600">
+                    {transactions.filter(t => t.amount < 0).length}
+                  </div>
+                  <div className="text-sm text-blue-700">Total Transactions</div>
+                </div>
+              </div>
+
+              {/* Top Categories Preview */}
+              {(() => {
+                const expensesByCategory = transactions
+                  .filter(t => t.amount < 0)
+                  .reduce((acc, t) => {
+                    const cat = t.category || 'Other';
+                    acc[cat] = (acc[cat] || 0) + Math.abs(t.amount);
+                    return acc;
+                  }, {} as Record<string, number>);
+                
+                const topCategories = Object.entries(expensesByCategory)
+                  .sort(([,a], [,b]) => b - a)
+                  .slice(0, 3);
+
+                return topCategories.length > 0 && (
+                  <div className="mt-4">
+                    <h4 className="text-sm font-medium text-gray-700 mb-2">Top Spending Categories</h4>
+                    <div className="space-y-1">
+                      {topCategories.map(([category, amount]) => (
+                        <div key={category} className="flex justify-between text-sm">
+                          <span className="text-gray-600">{category}</span>
+                          <span className="font-medium">€{amount.toLocaleString()}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Enhanced Expense History Section */}
+      {showExpenseHistory && (
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200">
+          <div className="p-6 border-b border-gray-100">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-xl font-semibold text-gray-900">Expense History</h3>
+              <div className="text-right">
+                <p className="text-2xl font-bold text-gray-900">
+                  {transactions.filter(t => t.amount < 0).length}
+                </p>
+                <p className="text-sm text-gray-500">
+                  expenses ({transactions.length} total transactions)
+                </p>
+              </div>
+            </div>
+
+            {/* Enhanced Filters */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+              <div className="relative">
+                <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Search description, category, or amount..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <select
+                value={selectedCategory}
+                onChange={(e) => setSelectedCategory(e.target.value)}
+                className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="All">All Categories</option>
+                {expenseCategories.map(cat => (
+                  <option key={cat} value={cat}>{cat}</option>
+                ))}
+              </select>
+
+              <select
+                value={dateFilter}
+                onChange={(e) => setDateFilter(e.target.value)}
+                className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="all">All Time</option>
+                <option value="today">Today</option>
+                <option value="week">This Week</option>
+                <option value="month">This Month</option>
+                <option value="quarter">This Quarter</option>
+                <option value="year">This Year</option>
+              </select>
+
+              <div className="flex gap-2">
+                <input
+                  type="number"
+                  placeholder="Min €"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  onChange={(e) => {
+                    // Add min amount filter state if needed
+                  }}
+                />
+                <input
+                  type="number"
+                  placeholder="Max €"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  onChange={(e) => {
+                    // Add max amount filter state if needed
+                  }}
+                />
+              </div>
+
+              <button
+                onClick={() => {
+                  setSearchTerm('');
+                  setSelectedCategory('All');
+                  setDateFilter('all');
+                }}
+                className="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 whitespace-nowrap"
+              >
+                Clear Filters
+              </button>
+            </div>
+          </div>
+
+          {/* Debug Info */}
+          {transactions.length === 0 && (
+            <div className="p-6 text-center">
+              <Receipt className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+              <h4 className="text-lg font-medium text-gray-900 mb-2">No transactions yet</h4>
+              <p className="text-gray-600 mb-4">
+                Upload your first bank statement or add a manual expense to get started.
+              </p>
+              <div className="flex justify-center gap-3">
+                <button
+                  onClick={() => setShowManualForm(true)}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                >
+                  Add Manual Expense
+                </button>
+                <a
+                  href="/sample-statement.csv"
+                  download
+                  className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+                >
+                  Download Sample CSV
+                </a>
+              </div>
+            </div>
+          )}
+
+          {/* Expenses List */}
+          {transactions.length > 0 && (
+            <div className="divide-y divide-gray-100">
+              {transactions
+                .filter(transaction => {
+                  // Only show expenses (negative amounts)
+                  if (transaction.amount >= 0) return false;
+                  
+                  // Search filter (improved to search amounts too)
+                  if (searchTerm) {
+                    const searchLower = searchTerm.toLowerCase();
+                    const amountStr = Math.abs(transaction.amount).toString();
+                    if (
+                      !transaction.description.toLowerCase().includes(searchLower) && 
+                      !transaction.category?.toLowerCase().includes(searchLower) &&
+                      !amountStr.includes(searchTerm)
+                    ) {
+                      return false;
+                    }
+                  }
+                  
+                  // Category filter
+                  if (selectedCategory !== 'All' && transaction.category !== selectedCategory) {
+                    return false;
+                  }
+                  
+                  // Date filter
+                  if (dateFilter !== 'all') {
+                    const range = getDateRange(dateFilter as 'today' | 'week' | 'month' | 'quarter' | 'year');
+                    if (!isDateInRange(transaction.date, range.start, range.end)) {
+                      return false;
+                    }
+                  }
+
+                  return true;
+                })
+                .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+                .map((transaction) => (
+                  <div key={transaction.id} className="p-4 hover:bg-gray-50 transition-colors">
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-3 mb-1">
+                          <div className="p-2 bg-red-100 rounded-lg">
+                            <DollarSign className="h-4 w-4 text-red-600" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <h4 className="font-medium text-gray-900 truncate">{transaction.description}</h4>
+                            <div className="flex items-center gap-4 text-sm text-gray-500">
+                              <span>{getRelativeDateString(transaction.date)}</span>
+                              <span className="px-2 py-1 bg-gray-100 rounded-full text-xs">
+                                {transaction.category || 'Uncategorized'}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-4 ml-4">
+                        <div className="text-right">
+                          <p className="text-lg font-bold text-red-600">
+                            €{Math.abs(transaction.amount).toLocaleString()}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <button
+                            onClick={() => setEditingExpense(transaction)}
+                            className="p-2 text-gray-400 hover:text-blue-600 transition-colors rounded-lg hover:bg-blue-50"
+                            title="Edit expense"
+                          >
+                            <Edit3 className="h-4 w-4" />
+                          </button>
+                          <button
+                            onClick={() => {
+                              setExpenseToDelete(transaction);
+                              setShowDeleteConfirm(true);
+                            }}
+                            className="p-2 text-gray-400 hover:text-red-600 transition-colors rounded-lg hover:bg-red-50"
+                            title="Delete expense"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              }
+              
+              {transactions.filter(t => t.amount < 0).length === 0 && (
+                <div className="text-center py-12">
+                  <Receipt className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                  <p className="text-gray-500 mb-2">No expenses found</p>
+                  <p className="text-sm text-gray-400">Try adjusting your filters or add your first expense</p>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Instructions */}
+      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-6 border border-blue-100">
+        <h3 className="text-lg font-semibold text-blue-900 mb-3 flex items-center gap-2">
+          <HelpCircle className="h-5 w-5" />
+          Quick Tips
+        </h3>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm text-blue-800">
+          <div>
+            <h4 className="font-medium mb-1">💰 Manual Entry</h4>
+            <p>Perfect for cash purchases, small expenses, or when you want immediate tracking.</p>
+          </div>
+          <div>
+            <h4 className="font-medium mb-1">🔄 Recurring Expenses</h4>
+            <p>Set up your regular bills like rent, utilities, and subscriptions for automatic tracking.</p>
+          </div>
+          <div>
+            <h4 className="font-medium mb-1">📄 Bulk Import</h4>
+            <p>Upload bank statements or receipts for bulk import of transactions with smart categorization.</p>
           </div>
         </div>
       </div>
@@ -722,11 +988,25 @@ const Expenses: React.FC = () => {
                 <input
                   type="text"
                   value={manualExpense.description}
-                  onChange={(e) => setManualExpense(prev => ({ ...prev, description: e.target.value }))}
-                  placeholder="e.g., Grocery shopping, Gas"
+                  onChange={(e) => {
+                    const newDescription = e.target.value;
+                    const suggestedCategory = getSuggestedCategory(newDescription);
+                    setManualExpense(prev => ({ 
+                      ...prev, 
+                      description: newDescription,
+                      // Auto-suggest category if user hasn't manually changed it or if it's still 'Other'
+                      category: prev.category === 'Other' || prev.category === getSuggestedCategory(prev.description) ? suggestedCategory : prev.category
+                    }));
+                  }}
+                  placeholder="e.g., Tesco grocery shopping, Shell gas station, Starbucks coffee..."
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   required
                 />
+                {manualExpense.description && getSuggestedCategory(manualExpense.description) !== 'Other' && (
+                  <p className="text-xs text-blue-600 mt-1">
+                    💡 Suggested category: {getSuggestedCategory(manualExpense.description)}
+                  </p>
+                )}
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">

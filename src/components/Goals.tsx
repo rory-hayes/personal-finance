@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Plus, Target, Calendar, DollarSign, TrendingUp, Edit3, Trash2 } from 'lucide-react';
+import { Plus, Target, Calendar, Euro, TrendingUp, Edit3, Trash2 } from 'lucide-react';
 import { useFinanceData } from '../hooks/useFinanceData';
 import { useFormValidation, commonValidationRules } from '../hooks/useFormValidation';
 import { Goal } from '../types';
@@ -213,15 +213,15 @@ const Goals: React.FC = () => {
             <p className="text-2xl font-bold text-gray-900">{goals.length}</p>
           </div>
           
-          <div className="bg-white rounded-lg p-6 border border-gray-200">
-            <div className="flex items-center justify-between mb-2">
-              <p className="text-sm font-medium text-gray-600">Total Target</p>
-              <DollarSign className="h-5 w-5 text-green-600" />
+                      <div className="bg-white rounded-lg p-6 border border-gray-200">
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-sm font-medium text-gray-600">Total Target</p>
+                <Euro className="h-5 w-5 text-green-600" />
+              </div>
+              <p className="text-2xl font-bold text-gray-900">
+                €{goals.reduce((sum, goal) => sum + goal.targetAmount, 0).toLocaleString()}
+              </p>
             </div>
-            <p className="text-2xl font-bold text-gray-900">
-              €{goals.reduce((sum, goal) => sum + goal.targetAmount, 0).toLocaleString()}
-            </p>
-          </div>
           
           <div className="bg-white rounded-lg p-6 border border-gray-200">
             <div className="flex items-center justify-between mb-2">
@@ -399,7 +399,7 @@ const Goals: React.FC = () => {
                         </span>
                       </div>
                       <div className="flex items-center gap-1">
-                        <DollarSign className="h-4 w-4" />
+                        <Euro className="h-4 w-4" />
                         <span>
                           €{monthlyTarget.toLocaleString()}/month needed
                         </span>
