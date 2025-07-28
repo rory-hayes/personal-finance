@@ -13,11 +13,20 @@ const DashboardCustomizationCard: React.FC<DashboardCustomizationCardProps> = ()
   const [cardSpacing, setCardSpacing] = useState(24);
   const [showTooltips, setShowTooltips] = useState(true);
   
+  // Card categories with state management
+  const [cardCategories, setCardCategories] = useState([
+    { name: 'Essential', count: 6, visible: 6 },
+    { name: 'Spending', count: 3, visible: 2 },
+    { name: 'Planning', count: 3, visible: 3 },
+    { name: 'Assets', count: 2, visible: 1 },
+    { name: 'Advanced', count: 1, visible: 0 }
+  ]);
+  
   // Mock dashboard settings (in real app, these would come from user preferences)
   const dashboardStats = {
-    totalCards: 15,
-    visibleCards: 12,
-    hiddenCards: 3,
+    totalCards: cardCategories.reduce((sum, cat) => sum + cat.count, 0),
+    visibleCards: cardCategories.reduce((sum, cat) => sum + cat.visible, 0),
+    hiddenCards: cardCategories.reduce((sum, cat) => sum + (cat.count - cat.visible), 0),
     lastModified: new Date().toLocaleDateString()
   };
 
@@ -28,13 +37,23 @@ const DashboardCustomizationCard: React.FC<DashboardCustomizationCardProps> = ()
     { id: 'green', name: 'Green', colors: ['#dcfce7', '#bbf7d0', '#86efac'] }
   ];
 
-  const cardCategories = [
-    { name: 'Essential', count: 6, visible: 6 },
-    { name: 'Spending', count: 3, visible: 2 },
-    { name: 'Planning', count: 3, visible: 3 },
-    { name: 'Assets', count: 2, visible: 1 },
-    { name: 'Advanced', count: 1, visible: 0 }
-  ];
+  // Helper function to update category visibility
+  const updateCategoryVisibility = (categoryName: string, visible: number) => {
+    setCardCategories(prev => 
+      prev.map(cat => 
+        cat.name === categoryName 
+          ? { ...cat, visible: Math.max(0, Math.min(cat.count, visible)) }
+          : cat
+      )
+    );
+  };
+
+  // Show all cards function
+  const showAllCards = () => {
+    setCardCategories(prev => 
+      prev.map(cat => ({ ...cat, visible: cat.count }))
+    );
+  };
 
   const recentChanges = [
     { action: 'Added', item: 'Subscription Tracker', time: '2 hours ago' },
@@ -179,20 +198,51 @@ const DashboardCustomizationCard: React.FC<DashboardCustomizationCardProps> = ()
 
       {/* Card Categories */}
       <div className="mb-6">
-        <h4 className="text-sm font-medium text-gray-900 mb-3">Card Categories</h4>
-        <div className="space-y-2">
+        <div className="flex items-center justify-between mb-3">
+          <h4 className="text-sm font-medium text-gray-900">Card Categories</h4>
+          <button
+            onClick={showAllCards}
+            className="text-xs text-blue-600 hover:text-blue-700 transition-colors"
+          >
+            Show All
+          </button>
+        </div>
+        <div className="space-y-3">
           {cardCategories.map((category) => (
-            <div key={category.name} className="flex items-center justify-between p-2 bg-gray-50 rounded">
-              <span className="text-sm font-medium text-gray-900">{category.name}</span>
-              <div className="flex items-center gap-2">
+            <div key={category.name} className="p-3 bg-gray-50 rounded-lg">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm font-medium text-gray-900">{category.name}</span>
                 <span className="text-xs text-gray-600">
                   {category.visible}/{category.count} visible
                 </span>
-                <div className="w-12 bg-gray-200 rounded-full h-2">
-                  <div
-                    className="bg-blue-600 h-2 rounded-full"
-                    style={{ width: `${(category.visible / category.count) * 100}%` }}
-                  />
+              </div>
+              <div className="flex items-center gap-3">
+                <input
+                  type="range"
+                  min="0"
+                  max={category.count}
+                  value={category.visible}
+                  onChange={(e) => updateCategoryVisibility(category.name, parseInt(e.target.value))}
+                  className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                  style={{
+                    background: `linear-gradient(to right, #3b82f6 0%, #3b82f6 ${(category.visible / category.count) * 100}%, #e5e7eb ${(category.visible / category.count) * 100}%, #e5e7eb 100%)`
+                  }}
+                />
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => updateCategoryVisibility(category.name, Math.max(0, category.visible - 1))}
+                    className="w-6 h-6 flex items-center justify-center text-gray-400 hover:text-gray-600 transition-colors"
+                    disabled={category.visible === 0}
+                  >
+                    <EyeOff className="h-3 w-3" />
+                  </button>
+                  <button
+                    onClick={() => updateCategoryVisibility(category.name, Math.min(category.count, category.visible + 1))}
+                    className="w-6 h-6 flex items-center justify-center text-gray-400 hover:text-gray-600 transition-colors"
+                    disabled={category.visible === category.count}
+                  >
+                    <Eye className="h-3 w-3" />
+                  </button>
                 </div>
               </div>
             </div>

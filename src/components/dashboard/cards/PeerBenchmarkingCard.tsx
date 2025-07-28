@@ -43,8 +43,12 @@ const PeerBenchmarkingCard: React.FC<PeerBenchmarkingCardProps> = ({ card, finan
       }
     };
 
-    // Calculate percentiles
+    // Calculate percentiles with NaN protection
     const calculatePercentile = (value: number, p25: number, p50: number, p75: number) => {
+      // Handle edge cases
+      if (isNaN(value) || !isFinite(value) || value < 0) return 0;
+      if (p25 <= 0 || p50 <= 0 || p75 <= 0) return 0;
+      
       if (value <= p25) return Math.max(5, (value / p25) * 25);
       if (value <= p50) return 25 + ((value - p25) / (p50 - p25)) * 25;
       if (value <= p75) return 50 + ((value - p50) / (p75 - p50)) * 25;
@@ -122,12 +126,14 @@ const PeerBenchmarkingCard: React.FC<PeerBenchmarkingCardProps> = ({ card, finan
           </div>
           <div className="flex items-end gap-2">
             <span className="text-3xl font-bold text-indigo-900">
-              {benchmarkData.overallPercentile}
+              {isNaN(benchmarkData.overallPercentile) || !isFinite(benchmarkData.overallPercentile) ? '—' : benchmarkData.overallPercentile}
             </span>
             <span className="text-lg text-indigo-700 mb-1">percentile</span>
           </div>
           <p className="text-sm text-indigo-700 mt-1">
-            You're doing better than {benchmarkData.overallPercentile}% of people in your demographic
+            {isNaN(benchmarkData.overallPercentile) || !isFinite(benchmarkData.overallPercentile) 
+              ? 'Add financial data to see your ranking' 
+              : `You're doing better than ${benchmarkData.overallPercentile}% of people in your demographic`}
           </p>
         </div>
       </div>
@@ -145,7 +151,7 @@ const PeerBenchmarkingCard: React.FC<PeerBenchmarkingCardProps> = ({ card, finan
                     {metric.format(metric.user)}
                   </span>
                   <span className="text-xs text-gray-600">
-                    ({Math.round(metric.percentile)}th %ile)
+                    ({isNaN(metric.percentile) || !isFinite(metric.percentile) ? '—' : `${Math.round(metric.percentile)}th`} %ile)
                   </span>
                 </div>
               </div>

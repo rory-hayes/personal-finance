@@ -18,6 +18,12 @@ const NetWorthGrowthCard: React.FC<NetWorthGrowthCardProps> = ({ card, financeDa
     goals
   } = financeData;
 
+  // Helper function to safely format percentages
+  const formatPercentage = (value: number): string => {
+    if (isNaN(value) || !isFinite(value)) return '—';
+    return `${value >= 0 ? '+' : ''}${value.toFixed(1)}%`;
+  };
+
   // Calculate comprehensive net worth growth data
   const growthData = useMemo(() => {
     const currentNetWorth = totalAssetValue + totalAccountBalance;
@@ -91,17 +97,18 @@ const NetWorthGrowthCard: React.FC<NetWorthGrowthCardProps> = ({ card, financeDa
     // Combine historical and future data
     const allData = [...historicalData, ...futureData];
     
-    // Calculate key metrics
+    // Calculate key metrics with proper NaN handling
     const oneYearAgo = allData[allData.length - 13] || allData[0];
-    const yearOverYearGrowth = oneYearAgo ? 
+    const yearOverYearGrowth = oneYearAgo && oneYearAgo.netWorth > 0 ? 
       ((currentNetWorth - oneYearAgo.netWorth) / oneYearAgo.netWorth) * 100 : 0;
     
     const threeMonthsAgo = allData[allData.length - 4] || allData[0];
-    const quarterGrowth = threeMonthsAgo ? 
+    const quarterGrowth = threeMonthsAgo && threeMonthsAgo.netWorth > 0 ? 
       ((currentNetWorth - threeMonthsAgo.netWorth) / threeMonthsAgo.netWorth) * 100 : 0;
     
     const oneYearProjection = futureData[11]?.netWorth || currentNetWorth;
-    const projectedYearGrowth = ((oneYearProjection - currentNetWorth) / currentNetWorth) * 100;
+    const projectedYearGrowth = currentNetWorth > 0 ? 
+      ((oneYearProjection - currentNetWorth) / currentNetWorth) * 100 : 0;
     
     // Find relevant financial goals
     const netWorthGoals = goals?.filter((g: any) => 
@@ -143,7 +150,7 @@ const NetWorthGrowthCard: React.FC<NetWorthGrowthCardProps> = ({ card, financeDa
             <p className={`text-lg font-bold ${
               growthData.yearOverYearGrowth >= 0 ? 'text-green-900' : 'text-red-900'
             }`}>
-              {growthData.yearOverYearGrowth >= 0 ? '+' : ''}{growthData.yearOverYearGrowth.toFixed(1)}%
+              {formatPercentage(growthData.yearOverYearGrowth)}
             </p>
           </div>
           <p className="text-xs text-green-700">Year Growth</p>
@@ -212,7 +219,7 @@ const NetWorthGrowthCard: React.FC<NetWorthGrowthCardProps> = ({ card, financeDa
             <p className={`text-lg font-bold ${
               growthData.yearOverYearGrowth >= 0 ? 'text-green-600' : 'text-red-600'
             }`}>
-              {growthData.yearOverYearGrowth >= 0 ? '+' : ''}{growthData.yearOverYearGrowth.toFixed(1)}%
+              {formatPercentage(growthData.yearOverYearGrowth)}
             </p>
           </div>
           <p className="text-sm text-gray-600">YoY Growth</p>

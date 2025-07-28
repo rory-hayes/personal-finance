@@ -151,10 +151,10 @@ const EmergencyFundCard: React.FC<EmergencyFundCardProps> = ({ card, financeData
         </div>
       </div>
 
-      {/* Recommendations */}
+      {/* Recommendations and Actions */}
       <div className="flex-1 bg-gray-50 rounded-lg p-4">
         <h5 className="font-medium text-gray-900 mb-2">Recommendations:</h5>
-        <div className="space-y-2 text-sm text-gray-600">
+        <div className="space-y-2 text-sm text-gray-600 mb-4">
           {emergencyFundData.monthsOfExpenses < 3 && (
             <div className="flex items-center gap-2">
               <div className="w-2 h-2 bg-red-500 rounded-full"></div>
@@ -174,6 +174,22 @@ const EmergencyFundCard: React.FC<EmergencyFundCardProps> = ({ card, financeData
             </div>
           )}
         </div>
+
+        {/* Action Button */}
+        {emergencyFundData.monthsOfExpenses < 6 && (
+          <button
+            onClick={() => {
+              // Navigate to Household tab to set up emergency fund account
+              const event = new CustomEvent('navigateToHousehold', { 
+                detail: { action: 'addAccount', accountType: 'emergency' } 
+              });
+              window.dispatchEvent(event);
+            }}
+            className="w-full px-3 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            Build Emergency Fund
+          </button>
+        )}
       </div>
     </div>
   );
