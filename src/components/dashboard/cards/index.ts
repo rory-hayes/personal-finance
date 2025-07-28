@@ -27,7 +27,6 @@ export {
   GoalTimelineCard,
   RecentTransactionsCard,
   SubscriptionTrackerCard,
-  BonusTrackerCard,
   PeerBenchmarkingCard,
   HouseholdContributionsCard,
   CashFlowInsightsCard,

@@ -64,7 +64,7 @@ const Expenses: React.FC = () => {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [expenseToDelete, setExpenseToDelete] = useState<Transaction | null>(null);
   
-  const { addTransaction, updateTransaction, deleteTransaction, transactions, users, addRecurringExpense } = useFinanceData();
+  const { addTransaction, updateTransaction, deleteTransaction, transactions, users, addRecurringExpense, recurringExpenses } = useFinanceData();
 
   // Set up recurring transaction processor
   useEffect(() => {
@@ -569,7 +569,7 @@ const Expenses: React.FC = () => {
                     <Edit3 className="h-5 w-5 text-gray-600" />
                   </div>
                   <div className="flex-1">
-                    <h4 className="font-medium text-gray-900">Manage Recurring ({recurringTransactions.length})</h4>
+                    <h4 className="font-medium text-gray-900">Manage Recurring ({recurringExpenses.length})</h4>
                     <p className="text-sm text-gray-600">Edit or cancel scheduled expenses</p>
                   </div>
                 </div>
@@ -577,19 +577,19 @@ const Expenses: React.FC = () => {
             </div>
 
             {/* Quick Recurring Expenses Preview */}
-            {recurringTransactions.length > 0 && (
+            {recurringExpenses.length > 0 && (
               <div className="mt-4 p-3 bg-gray-50 rounded-lg">
                 <h5 className="text-sm font-medium text-gray-700 mb-2">Active Recurring:</h5>
                 <div className="space-y-1">
-                  {recurringTransactions.slice(0, 3).map((expense, index) => (
+                  {recurringExpenses.slice(0, 3).map((expense, index) => (
                     <div key={index} className="flex justify-between text-sm">
-                      <span className="text-gray-600">{expense.template.description}</span>
-                      <span className="font-medium">€{Math.abs(expense.template.amount)}</span>
+                      <span className="text-gray-600">{expense.description}</span>
+                      <span className="font-medium">€{Math.abs(expense.amount)}</span>
                     </div>
                   ))}
-                  {recurringTransactions.length > 3 && (
+                  {recurringExpenses.length > 3 && (
                     <div className="text-xs text-gray-500 pt-1">
-                      +{recurringTransactions.length - 3} more...
+                      +{recurringExpenses.length - 3} more...
                     </div>
                   )}
                 </div>
@@ -744,6 +744,12 @@ const Expenses: React.FC = () => {
                 </p>
                 <p className="text-sm text-gray-500">
                   expenses ({transactions.length} total transactions)
+                </p>
+                {/* Debug info for amount distribution */}
+                <p className="text-xs text-blue-600">
+                  Positive: {transactions.filter(t => t.amount > 0).length}, 
+                  Negative: {transactions.filter(t => t.amount < 0).length}, 
+                  Zero: {transactions.filter(t => t.amount === 0).length}
                 </p>
               </div>
             </div>

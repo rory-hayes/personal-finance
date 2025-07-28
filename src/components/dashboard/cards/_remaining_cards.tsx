@@ -13,9 +13,7 @@ export const SubscriptionTrackerCard: React.FC<{ card: any; financeData: any }> 
   <PlaceholderCard card={card} />
 );
 
-export const BonusTrackerCard: React.FC<{ card: any; financeData: any }> = ({ card }) => (
-  <PlaceholderCard card={card} />
-);
+
 
 export const PeerBenchmarkingCard: React.FC<{ card: any; financeData: any }> = ({ card }) => (
   <PlaceholderCard card={card} />
@@ -41,7 +39,6 @@ export default {
   GoalTimelineCard,
   RecentTransactionsCard,
   SubscriptionTrackerCard,
-  BonusTrackerCard,
   PeerBenchmarkingCard,
   HouseholdContributionsCard,
   CashFlowInsightsCard,

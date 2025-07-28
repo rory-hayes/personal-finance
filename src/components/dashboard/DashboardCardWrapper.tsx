@@ -21,7 +21,7 @@ import VestingSchedulesCard from './cards/VestingSchedulesCard';
 import RecentTransactionsCard from './cards/RecentTransactionsCard';
 import GoalTimelineCard from './cards/GoalTimelineCard';
 import SubscriptionTrackerCard from './cards/SubscriptionTrackerCard';
-import BonusTrackerCard from './cards/BonusTrackerCard';
+
 import PeerBenchmarkingCard from './cards/PeerBenchmarkingCard';
 import HouseholdContributionsCard from './cards/HouseholdContributionsCard';
 import CashFlowInsightsCard from './cards/CashFlowInsightsCard';
@@ -196,8 +196,7 @@ const DashboardCardWrapper: React.FC<DashboardCardWrapperProps> = ({
       case 'subscription-tracker':
         return <SubscriptionTrackerCard card={card} financeData={financeData} />;
 
-      case 'bonus-tracker':
-        return <BonusTrackerCard card={card} financeData={financeData} />;
+
 
       case 'peer-benchmarking':
         return <PeerBenchmarkingCard card={card} financeData={financeData} />;

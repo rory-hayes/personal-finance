@@ -58,52 +58,64 @@ export const useFinanceData = () => {
     if (!user) return;
 
     try {
-      // Check if user record exists in users table
-      const { data: existingUser, error: userError } = await supabase
+      // Load ALL users where auth_user_id matches (includes household members)
+      const { data: allUsers, error: userError } = await supabase
         .from('users')
         .select('*')
         .eq('auth_user_id', user.id)
-        .single();
+        .order('id');
 
-      if (userError && userError.code !== 'PGRST116') {
-        console.error('Error loading user:', userError);
+      if (userError) {
+        console.error('Error loading users:', userError);
         return;
       }
 
-      if (existingUser) {
-        // Always sync monthly income from profile to ensure consistency
-        let finalMonthlyIncome = existingUser.monthly_income;
-        let finalName = existingUser.name;
+      if (allUsers && allUsers.length > 0) {
+        // Find the primary user (the one with ID matching auth user ID)
+        const primaryUser = allUsers.find((u: any) => u.id === user.id);
         
-        if (profile) {
-          // If profile has different monthly income, update the users table
-          if (profile.monthly_income !== existingUser.monthly_income || profile.full_name !== existingUser.name) {
-            console.log('🔄 Syncing user data from profile to users table');
+        // Always sync primary user data from profile to ensure consistency
+        if (primaryUser && profile) {
+          if (profile.monthly_income !== primaryUser.monthly_income || profile.full_name !== primaryUser.name) {
+            console.log('🔄 Syncing primary user data from profile to users table');
             const { error: updateError } = await supabase
               .from('users')
               .update({
                 monthly_income: profile.monthly_income,
                 name: profile.full_name
               })
-              .eq('auth_user_id', user.id);
+              .eq('id', user.id);
 
             if (updateError) {
               console.error('Error syncing user data:', updateError);
             } else {
-              finalMonthlyIncome = profile.monthly_income;
-              finalName = profile.full_name;
+              // Update the primary user in our local array
+              const updatedUsers = allUsers.map((u: any) => 
+                u.id === user.id 
+                  ? { ...u, monthly_income: profile.monthly_income, name: profile.full_name }
+                  : u
+              );
+              setUsers(updatedUsers.map((u: any) => ({
+                id: u.id,
+                name: u.name,
+                monthlyIncome: u.monthly_income,
+                color: u.color
+              })));
+              return;
             }
           }
         }
 
-        setUsers([{
-          id: existingUser.id,
-          name: finalName,
-          monthlyIncome: finalMonthlyIncome,
-          color: existingUser.color
-        }]);
+        // Set all users (primary + household members)
+        setUsers(allUsers.map((u: any) => ({
+          id: u.id,
+          name: u.name,
+          monthlyIncome: u.monthly_income,
+          color: u.color
+        })));
+        
       } else if (profile) {
-        // Create user record if it doesn't exist
+        // Create primary user record if no users exist
         const { data: newUser, error: insertError } = await supabase
           .from('users')
           .insert([{

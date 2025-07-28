@@ -31,7 +31,6 @@ export type CardType =
   | 'goal-timeline'
   | 'recent-transactions'
   | 'subscription-tracker'
-  | 'bonus-tracker'
   | 'peer-benchmarking'
   | 'household-contributions'
   | 'cash-flow-insights'
@@ -322,15 +321,7 @@ export const CARD_DEFINITIONS: CardDefinition[] = [
     dataSource: ['transactions'],
     chartTypes: ['table', 'bar']
   },
-  {
-    type: 'bonus-tracker',
-    title: 'Bonus Tracker',
-    description: 'Variable income visualization and forecasting',
-    defaultSize: 'half',
-    category: 'advanced',
-    dataSource: ['transactions', 'vesting_schedules'],
-    chartTypes: ['bar', 'line']
-  },
+
   {
     type: 'peer-benchmarking',
     title: 'Peer Benchmarking',

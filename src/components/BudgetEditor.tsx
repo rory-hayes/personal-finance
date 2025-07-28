@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { X } from 'lucide-react';
 import { useFinanceData } from '../hooks/useFinanceData';
 import { showToast } from '../utils/toast';
 
@@ -50,9 +51,19 @@ const BudgetEditor: React.FC<{ budgetId: string; onClose: () => void }> = ({ bud
   };
 
   return (
-    <div className="p-4 border border-gray-200 rounded">
-      <h3 className="text-lg font-semibold mb-2">Edit Budget</h3>
-      <form onSubmit={handleSubmit} className="space-y-4">
+    <div className="bg-white rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+      <div className="p-6 border-b border-gray-200">
+        <div className="flex items-center justify-between">
+          <h3 className="text-xl font-bold text-gray-900">Edit Budget</h3>
+          <button
+            onClick={onClose}
+            className="text-gray-400 hover:text-gray-600"
+          >
+            <X className="h-6 w-6" />
+          </button>
+        </div>
+      </div>
+      <form onSubmit={handleSubmit} className="p-6 space-y-4">
         <div>
           <label htmlFor="budget-total" className="block text-sm font-medium text-gray-700">Total Budget (€)</label>
           <input
@@ -92,17 +103,17 @@ const BudgetEditor: React.FC<{ budgetId: string; onClose: () => void }> = ({ bud
             </div>
           ))}
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-3 pt-4">
           <button
             type="submit"
-            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+            className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
           >
-            Save
+            Update Budget
           </button>
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
+            className="px-4 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2"
           >
             Cancel
           </button>
