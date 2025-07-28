@@ -54,6 +54,73 @@ const MonthlySavingsCard: React.FC<MonthlySavingsCardProps> = ({ card, financeDa
 
   const StatusIcon = savingsData.statusIcon;
 
+  const renderMobileView = () => {
+    return (
+      <div className="flex flex-col space-y-4">
+        {/* Main Value */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className={`p-2.5 rounded-lg ${savingsData.statusColor}`}>
+              <StatusIcon className="h-6 w-6" />
+            </div>
+            <div>
+              <p className="text-2xl font-bold text-gray-900">
+                €{savingsData.currentSavings.toLocaleString()}
+              </p>
+              <p className="text-sm text-gray-500">Monthly savings</p>
+            </div>
+          </div>
+          <div className="text-right">
+            <p className="text-lg font-bold text-green-600">
+              {savingsData.currentRate.toFixed(1)}%
+            </p>
+            <p className="text-xs text-gray-500">savings rate</p>
+          </div>
+        </div>
+
+        {/* Progress to Goal */}
+        <div className="pt-3 border-t border-gray-100">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-sm font-medium text-gray-600">Progress to 20% goal</span>
+            <span className="text-sm font-semibold text-gray-900">
+              {savingsData.progressToRecommended.toFixed(0)}%
+            </span>
+          </div>
+          <div className="w-full bg-gray-200 rounded-full h-2.5">
+            <div 
+              className="bg-green-600 h-2.5 rounded-full transition-all duration-300"
+              style={{ width: `${savingsData.progressToRecommended}%` }}
+            />
+          </div>
+          <div className="flex items-center justify-between mt-2 text-xs text-gray-500">
+            <span>Current: €{savingsData.currentSavings.toLocaleString()}</span>
+            <span>Target: €{savingsData.recommendedSavings.toLocaleString()}</span>
+          </div>
+        </div>
+
+        {/* Status Message */}
+        <div className={`p-3 rounded-lg border ${
+          savingsData.status === 'excellent' ? 'bg-green-50 border-green-200' :
+          savingsData.status === 'good' ? 'bg-blue-50 border-blue-200' :
+          savingsData.status === 'warning' ? 'bg-yellow-50 border-yellow-200' :
+          'bg-red-50 border-red-200'
+        }`}>
+          <p className={`text-sm font-medium ${
+            savingsData.status === 'excellent' ? 'text-green-800' :
+            savingsData.status === 'good' ? 'text-blue-800' :
+            savingsData.status === 'warning' ? 'text-yellow-800' :
+            'text-red-800'
+          }`}>
+            {savingsData.status === 'excellent' && 'Excellent savings rate! Keep it up!'}
+            {savingsData.status === 'good' && 'Good savings rate. Consider increasing slightly.'}
+            {savingsData.status === 'warning' && 'Low savings rate. Try to save more.'}
+            {savingsData.status === 'critical' && 'Critical: Very low savings rate.'}
+          </p>
+        </div>
+      </div>
+    );
+  };
+
   const renderQuarterView = () => (
     <div className="flex flex-col h-full">
       <div className="flex items-center gap-3 mb-4">
@@ -173,7 +240,19 @@ const MonthlySavingsCard: React.FC<MonthlySavingsCardProps> = ({ card, financeDa
     </div>
   );
 
-  return card.size === 'quarter' ? renderQuarterView() : renderDetailedView();
+  return (
+    <>
+      {/* Mobile Layout */}
+      <div className="lg:hidden">
+        {renderMobileView()}
+      </div>
+      
+      {/* Desktop Layout */}
+      <div className="hidden lg:block">
+        {card.size === 'quarter' ? renderQuarterView() : renderDetailedView()}
+      </div>
+    </>
+  );
 };
 
 export default MonthlySavingsCard; 

@@ -227,10 +227,10 @@ const DashboardCardWrapper: React.FC<DashboardCardWrapperProps> = ({
 
   return (
     <div className={`relative ${getSizeClass(card.size)}`}>
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 min-h-0 flex flex-col">
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 min-h-0 flex flex-col lg:min-h-[200px]">
         {/* Card Header */}
-        <div className="flex items-center justify-between p-3 lg:p-4 border-b border-gray-100">
-          <h3 className="text-base lg:text-lg font-semibold text-gray-900 truncate pr-2">
+        <div className="flex items-center justify-between p-4 lg:p-4 border-b border-gray-100">
+          <h3 className="text-lg lg:text-lg font-semibold text-gray-900 truncate pr-2">
             {card.config?.title || cardDefinition.title}
           </h3>
           
@@ -306,7 +306,7 @@ const DashboardCardWrapper: React.FC<DashboardCardWrapperProps> = ({
         </div>
         
         {/* Card Content */}
-        <div className="p-3 lg:p-4 flex-1 min-h-0">
+        <div className="p-4 lg:p-4 flex-1 min-h-0">
           {renderCardContent()}
         </div>
       </div>

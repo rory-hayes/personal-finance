@@ -51,6 +51,62 @@ const NetWorthCard: React.FC<NetWorthCardProps> = ({ card, financeData }) => {
     };
   }, [totalAssetValue, totalAccountBalance, assets, accounts]);
 
+  const renderMobileView = () => (
+    <div className="flex flex-col space-y-4">
+      {/* Main Value */}
+      <div className="flex items-center gap-3">
+        <div className="p-2.5 bg-purple-100 rounded-lg">
+          <DollarSign className="h-6 w-6 text-purple-600" />
+        </div>
+        <div className="flex-1">
+          <p className="text-2xl font-bold text-gray-900">
+            €{netWorthData.totalNetWorth.toLocaleString()}
+          </p>
+          <p className="text-sm text-gray-500">Total Net Worth</p>
+        </div>
+        <div className="flex items-center gap-1">
+          <TrendingUp className="h-4 w-4 text-green-600" />
+        </div>
+      </div>
+
+      {/* Breakdown - Mobile Optimized */}
+      {netWorthData.breakdown.length > 0 ? (
+        <div className="pt-3 border-t border-gray-100">
+          <div className="flex items-center gap-2 mb-3">
+            <PieChart className="h-4 w-4 text-gray-500" />
+            <span className="text-sm font-medium text-gray-600">Breakdown</span>
+          </div>
+          <div className="grid grid-cols-1 gap-3">
+            {netWorthData.breakdown.map((item) => (
+              <div key={item.category} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                <div className="flex items-center gap-3">
+                  <div 
+                    className="w-3 h-3 rounded-full"
+                    style={{ backgroundColor: item.color }}
+                  />
+                  <div>
+                    <span className="text-sm font-medium text-gray-700">{item.category}</span>
+                    <p className="text-xs text-gray-500">{item.percentage.toFixed(1)}% of total</p>
+                  </div>
+                </div>
+                <span className="text-sm font-semibold text-gray-900">
+                  €{item.value.toLocaleString()}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : (
+        <div className="pt-3 border-t border-gray-100">
+          <div className="text-center text-gray-500 py-4">
+            <PieChart className="h-8 w-8 mx-auto mb-2 text-gray-400" />
+            <p className="text-sm">Add accounts and assets to track your net worth</p>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+
   const renderQuarterView = () => (
     <div className="flex flex-col h-full">
       <div className="flex items-center gap-3 mb-4">
@@ -175,7 +231,19 @@ const NetWorthCard: React.FC<NetWorthCardProps> = ({ card, financeData }) => {
     </div>
   );
 
-  return card.size === 'quarter' ? renderQuarterView() : renderDetailedView();
+  return (
+    <>
+      {/* Mobile Layout */}
+      <div className="lg:hidden">
+        {renderMobileView()}
+      </div>
+      
+      {/* Desktop Layout */}
+      <div className="hidden lg:block">
+        {card.size === 'quarter' ? renderQuarterView() : renderDetailedView()}
+      </div>
+    </>
+  );
 };
 
 export default NetWorthCard; 

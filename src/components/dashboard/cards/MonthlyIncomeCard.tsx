@@ -73,6 +73,65 @@ const MonthlyIncomeCard: React.FC<MonthlyIncomeCardProps> = ({ card, financeData
     };
   }, [users, transactions, totalIncome]);
 
+  const renderMobileView = () => (
+    <div className="flex flex-col space-y-4">
+      {/* Main Value */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="p-2.5 bg-green-100 rounded-lg">
+            <DollarSign className="h-6 w-6 text-green-600" />
+          </div>
+          <div>
+            <p className="text-2xl font-bold text-gray-900">
+              €{incomeData.currentIncome.toLocaleString()}
+            </p>
+            <p className="text-sm text-gray-500">This month</p>
+          </div>
+        </div>
+        {incomeData.change !== 0 && (
+          <div className="flex items-center gap-1">
+            {incomeData.isPositive ? (
+              <TrendingUp className="h-4 w-4 text-green-600" />
+            ) : (
+              <TrendingDown className="h-4 w-4 text-red-600" />
+            )}
+            <span className={`text-sm font-medium ${
+              incomeData.isPositive ? 'text-green-600' : 'text-red-600'
+            }`}>
+              {incomeData.isPositive ? '+' : ''}{incomeData.change.toFixed(1)}%
+            </span>
+          </div>
+        )}
+      </div>
+
+      {/* Contributors - Mobile Optimized */}
+      {incomeData.hasMultipleUsers && incomeData.incomeByUser.length > 0 && (
+        <div className="pt-3 border-t border-gray-100">
+          <div className="flex items-center gap-2 mb-3">
+            <Users className="h-4 w-4 text-gray-500" />
+            <span className="text-sm font-medium text-gray-600">Contributors</span>
+          </div>
+          <div className="grid grid-cols-1 gap-2">
+            {incomeData.incomeByUser.slice(0, 4).map((user: any) => (
+              <div key={user.name} className="flex items-center justify-between py-1">
+                <div className="flex items-center gap-2">
+                  <div 
+                    className="w-3 h-3 rounded-full"
+                    style={{ backgroundColor: user.color }}
+                  />
+                  <span className="text-sm text-gray-700 font-medium">{user.name}</span>
+                </div>
+                <span className="text-sm font-semibold text-gray-900">
+                  €{user.income.toLocaleString()}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+
   const renderQuarterView = () => (
     <div className="flex flex-col h-full">
       <div className="flex items-center gap-3 mb-4">
@@ -188,7 +247,19 @@ const MonthlyIncomeCard: React.FC<MonthlyIncomeCardProps> = ({ card, financeData
     </div>
   );
 
-  return card.size === 'quarter' ? renderQuarterView() : renderDetailedView();
+  return (
+    <>
+      {/* Mobile Layout */}
+      <div className="lg:hidden">
+        {renderMobileView()}
+      </div>
+      
+      {/* Desktop Layout */}
+      <div className="hidden lg:block">
+        {card.size === 'quarter' ? renderQuarterView() : renderDetailedView()}
+      </div>
+    </>
+  );
 };
 
 export default MonthlyIncomeCard; 

@@ -150,6 +150,95 @@ const AccountListCard: React.FC<AccountListCardProps> = ({ card, financeData }) 
     return date.toLocaleDateString();
   };
 
+  const renderMobileView = () => (
+    <div className="flex flex-col space-y-4">
+      {accountData.hasData ? (
+        <>
+          {/* Summary */}
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 bg-blue-100 rounded-lg">
+              <Wallet className="h-6 w-6 text-blue-600" />
+            </div>
+            <div className="flex-1">
+              <p className="text-2xl font-bold text-gray-900">
+                €{accountData.totalBalance.toLocaleString()}
+              </p>
+              <p className="text-sm text-gray-500">{accountData.accounts.length} account{accountData.accounts.length !== 1 ? 's' : ''}</p>
+            </div>
+          </div>
+
+          {/* Account List - Mobile Optimized */}
+          <div className="pt-3 border-t border-gray-100 space-y-3">
+            {accountData.accounts.slice(0, 4).map((account: any) => {
+              const IconComponent = getAccountIcon(account.type);
+              return (
+                <div key={account.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                  <div className="flex items-center gap-3 flex-1 min-w-0">
+                    <div className="p-1.5 bg-white rounded-md">
+                      <IconComponent className="h-4 w-4 text-gray-600" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-gray-900 truncate">
+                        {account.accountName}
+                      </p>
+                      <div className="flex items-center gap-2">
+                        <span className={`text-xs px-2 py-0.5 rounded-full border ${getAccountColor(account.type)}`}>
+                          {getAccountTypeLabel(account.type)}
+                        </span>
+                        <span className="text-xs text-gray-500">
+                          {account.owner}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-sm font-semibold text-gray-900">
+                      €{account.balance.toLocaleString()}
+                    </p>
+                    {account.recentTransactionCount > 0 && (
+                      <p className="text-xs text-gray-500">
+                        {account.recentTransactionCount} recent
+                      </p>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+            
+            {accountData.accounts.length > 4 && (
+              <div className="text-center pt-2">
+                <button
+                  onClick={() => window.dispatchEvent(new CustomEvent('switchToUsers'))}
+                  className="text-sm text-blue-600 font-medium"
+                >
+                  View all {accountData.accounts.length} accounts
+                </button>
+              </div>
+            )}
+          </div>
+        </>
+      ) : (
+        <div className="flex flex-col items-center justify-center text-center py-6">
+          <div className="p-4 bg-gray-100 rounded-full mb-4">
+            <Wallet className="h-8 w-8 text-gray-400" />
+          </div>
+          <p className="text-lg font-medium text-gray-900 mb-2">No accounts</p>
+          <p className="text-sm text-gray-600 mb-4">
+            Set up your first account to get started
+          </p>
+          <button
+            onClick={() => window.dispatchEvent(new CustomEvent('switchToUsers'))}
+            className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg active:bg-blue-700 text-sm font-medium touch-manipulation"
+            style={{ WebkitTapHighlightColor: 'transparent' }}
+          >
+            <Plus className="h-4 w-4" />
+            Add Account
+          </button>
+        </div>
+      )}
+    </div>
+  );
+
   // Render for quarter/half size cards
   const renderCompactView = () => (
     <div className="h-full flex flex-col">
@@ -376,7 +465,19 @@ const AccountListCard: React.FC<AccountListCardProps> = ({ card, financeData }) 
     </div>
   );
 
-  return card.size === 'full' || card.size === 'tall' ? renderDetailedView() : renderCompactView();
+  return (
+    <>
+      {/* Mobile Layout */}
+      <div className="lg:hidden">
+        {renderMobileView()}
+      </div>
+      
+      {/* Desktop Layout */}
+      <div className="hidden lg:block">
+        {card.size === 'full' || card.size === 'tall' ? renderDetailedView() : renderCompactView()}
+      </div>
+    </>
+  );
 };
 
 export default AccountListCard; 
