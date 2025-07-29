@@ -2,6 +2,9 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Dashboard Improvements */
+@import './components/dashboard/dashboard-improvements.css';
+
 /* Custom scrollbar for webkit browsers */
 @layer utilities {
   .scrollbar-thin {

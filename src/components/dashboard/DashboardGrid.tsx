@@ -178,12 +178,15 @@ const DashboardGrid: React.FC<DashboardGridProps> = ({
                   ref={provided.innerRef}
                   {...provided.droppableProps}
                   className={`
-                    grid gap-3 lg:gap-4 h-full
+                    grid gap-2 lg:gap-3 h-full
                     ${isMobile 
                       ? 'grid-cols-1' 
                       : 'grid-cols-4 auto-rows-max'
                     }
                   `}
+                  style={{
+                    gridTemplateRows: isMobile ? 'repeat(auto-fit, minmax(280px, auto))' : 'repeat(auto-fit, minmax(320px, auto))'
+                  }}
                 >
                   {cards.map((card, index) => (
                     <Draggable

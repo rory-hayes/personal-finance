@@ -1,0 +1,148 @@
+/* Dashboard Improvements - Safe CSS-only enhancements */
+
+/* Improved Grid Spacing for Better Space Utilization */
+.dashboard-grid {
+  gap: 0.5rem !important; /* 8px gap instead of 12-16px */
+}
+
+@media (min-width: 1024px) {
+  .dashboard-grid {
+    gap: 0.75rem !important; /* 12px gap on large screens */
+  }
+}
+
+/* Enhanced Card Sizing for Better Space Usage */
+.dashboard-card {
+  min-height: 300px !important;
+}
+
+.dashboard-card.quarter-size {
+  min-height: 280px !important;
+}
+
+.dashboard-card.half-size {
+  min-height: 320px !important;
+}
+
+.dashboard-card.full-size {
+  min-height: 350px !important;
+}
+
+.dashboard-card.tall-size {
+  min-height: 400px !important;
+}
+
+/* Chart Overflow Prevention */
+.chart-container {
+  overflow: hidden !important;
+  position: relative !important;
+}
+
+.chart-container .recharts-responsive-container {
+  overflow: hidden !important;
+}
+
+.chart-container .recharts-wrapper {
+  overflow: hidden !important;
+}
+
+/* Specific fix for TopSpendingCard chart overflow */
+.top-spending-card .recharts-responsive-container {
+  max-width: 100% !important;
+  max-height: 100% !important;
+  overflow: hidden !important;
+}
+
+.top-spending-card .flex {
+  min-width: 0 !important;
+  overflow: hidden !important;
+}
+
+.top-spending-card .flex-1 {
+  min-width: 0 !important;
+  overflow: hidden !important;
+}
+
+/* Improved drag visual feedback */
+.dashboard-card.dragging {
+  transform: rotate(2deg) scale(1.05) !important;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04) !important;
+  z-index: 1000 !important;
+}
+
+/* Better mobile spacing */
+@media (max-width: 768px) {
+  .dashboard-grid {
+    gap: 0.5rem !important;
+    padding: 0.5rem !important;
+  }
+  
+  .dashboard-card {
+    min-height: 250px !important;
+  }
+}
+
+/* Responsive chart text sizing */
+.recharts-text {
+  font-size: 11px !important;
+}
+
+@media (min-width: 1024px) {
+  .recharts-text {
+    font-size: 12px !important;
+  }
+}
+
+/* Enhanced card hover effects for better interactivity */
+.dashboard-card:hover {
+  transform: translateY(-2px) !important;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05) !important;
+  transition: all 0.2s ease-in-out !important;
+}
+
+/* Improved card content padding for better space usage */
+.dashboard-card-content {
+  padding: 1rem !important;
+}
+
+@media (min-width: 1024px) {
+  .dashboard-card-content {
+    padding: 1.25rem !important;
+  }
+}
+
+/* Fix for any chart components that might overflow */
+.dashboard-card [class*="recharts"] {
+  max-width: 100% !important;
+  overflow: hidden !important;
+}
+
+/* Ensure proper containment for all chart types */
+.dashboard-card .recharts-surface {
+  overflow: hidden !important;
+}
+
+/* Enhanced grid density for larger screens */
+@media (min-width: 1536px) {
+  .dashboard-grid {
+    gap: 1rem !important;
+    grid-template-columns: repeat(6, 1fr) !important;
+  }
+  
+  .dashboard-card.quarter-size {
+    grid-column: span 1 !important;
+  }
+  
+  .dashboard-card.half-size {
+    grid-column: span 2 !important;
+  }
+  
+  .dashboard-card.full-size {
+    grid-column: span 6 !important;
+  }
+  
+  .dashboard-card.tall-size {
+    grid-column: span 2 !important;
+    grid-row: span 2 !important;
+  }
+} 

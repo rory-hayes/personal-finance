@@ -185,7 +185,7 @@ const TopSpendingCard: React.FC<TopSpendingCardProps> = ({ card, financeData }) 
   );
 
   const renderDetailedView = () => (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full top-spending-card">
       {spendingData.hasData ? (
         <>
           <div className="grid grid-cols-3 gap-4 mb-6">
@@ -217,47 +217,49 @@ const TopSpendingCard: React.FC<TopSpendingCardProps> = ({ card, financeData }) 
             </div>
           </div>
 
-          <div className="flex gap-6 flex-1 min-h-0">
+          <div className="flex gap-4 lg:gap-6 flex-1 min-h-0 overflow-hidden">
             {/* Chart Section */}
-            <div className="flex-1">
-              <h4 className="font-medium text-gray-900 mb-4">Top Spending Categories</h4>
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={spendingData.topCategories} layout="horizontal">
-                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                  <XAxis 
-                    type="number"
-                    tick={{ fontSize: 12 }}
-                    axisLine={false}
-                    tickFormatter={(value) => `€${(value / 1000).toFixed(0)}k`}
-                  />
-                  <YAxis 
-                    type="category"
-                    dataKey="category" 
-                    tick={{ fontSize: 12 }}
-                    axisLine={false}
-                    width={80}
-                  />
-                  <Tooltip 
-                    formatter={(value: any) => [`€${value.toLocaleString()}`, 'Amount']}
-                    labelStyle={{ color: '#374151' }}
-                  />
-                  <Bar 
-                    dataKey="amount" 
-                    radius={4}
-                    fill={(entry: any) => {
-                      if (entry.alertLevel === 'danger') return '#EF4444';
-                      if (entry.alertLevel === 'warning') return '#F59E0B';
-                      return '#3B82F6';
-                    }}
-                  />
-                </BarChart>
-              </ResponsiveContainer>
+            <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+              <h4 className="font-medium text-gray-900 mb-3">Top Spending Categories</h4>
+              <div className="flex-1 min-h-0 overflow-hidden">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart 
+                    data={spendingData.topCategories} 
+                    layout="horizontal"
+                    margin={{ top: 5, right: 10, left: 5, bottom: 5 }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                    <XAxis 
+                      type="number"
+                      tick={{ fontSize: 11 }}
+                      axisLine={false}
+                      tickFormatter={(value) => `€${(value / 1000).toFixed(0)}k`}
+                    />
+                    <YAxis 
+                      type="category"
+                      dataKey="category" 
+                      tick={{ fontSize: 11 }}
+                      axisLine={false}
+                      width={70}
+                    />
+                    <Tooltip 
+                      formatter={(value: any) => [`€${value.toLocaleString()}`, 'Amount']}
+                      labelStyle={{ color: '#374151' }}
+                    />
+                    <Bar 
+                      dataKey="amount" 
+                      radius={4}
+                      fill="#3B82F6"
+                    />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
             </div>
 
             {/* Category Details */}
-            <div className="w-80">
-              <h4 className="font-medium text-gray-900 mb-4">Category Analysis</h4>
-              <div className="space-y-4 max-h-64 overflow-y-auto">
+            <div className="w-72 lg:w-80 flex-shrink-0 overflow-hidden">
+              <h4 className="font-medium text-gray-900 mb-3">Category Analysis</h4>
+              <div className="space-y-3 h-64 overflow-y-auto">
                 {spendingData.topCategories.map((category, index) => (
                   <div key={category.category} className="border border-gray-200 rounded-lg p-4">
                     <div className="flex items-start justify-between mb-3">
