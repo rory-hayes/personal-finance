@@ -44,15 +44,16 @@ const Goals: React.FC = () => {
         if (!value.trim()) return null;
         const current = parseFloat(value);
         const target = parseFloat(formData.targetAmount);
-        if (isNaN(current)) return 'Please enter a valid number';
-        if (current < 0) return 'Value must be positive';
+        if (isNaN(current)) return 'Please enter a valid current amount';
+        if (current < 0) return 'Current amount cannot be negative. Please enter your actual saved amount.';
         if (!isNaN(target) && current > target) {
-          return 'Current amount cannot be greater than target amount';
+          return 'Current amount cannot exceed your target amount. Please adjust one of these values.';
         }
+        if (current > 1000000) return 'Current amount seems unusually large. Please verify this value.';
         return null;
       }
     },
-    targetDate: { required: true }
+    targetDate: commonValidationRules.futureDate
   });
 
   // Listen for custom event from Dashboard

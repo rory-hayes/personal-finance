@@ -19,6 +19,7 @@ export const useFinanceData = () => {
   const [vestingSchedules, setVestingSchedules] = useState<any[]>([]);
   const [monthlyAllocations, setMonthlyAllocations] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [dataReady, setDataReady] = useState(false);
 
   // Initialize data when user is available
   useEffect(() => {
@@ -47,12 +48,27 @@ export const useFinanceData = () => {
         loadMonthlyAllocations(),
         loadRecurringExpenses()
       ]);
+      
+      // Mark data as ready for UI to prevent flicker
+      setDataReady(true);
     } catch (error) {
       console.error('Error initializing data:', error);
     } finally {
       setLoading(false);
     }
   };
+
+  // Preloaded expense categories with intelligent defaults
+  const expenseCategories = useMemo(() => [
+    'Groceries', 'Dining', 'Transportation', 'Utilities', 'Housing', 
+    'Healthcare', 'Entertainment', 'Shopping', 'Bills', 'Insurance', 
+    'Education', 'Travel', 'Subscriptions', 'Fitness', 'Other'
+  ], []);
+
+  // Preloaded account types for faster UI rendering
+  const accountTypes = useMemo(() => [
+    'Checking', 'Savings', 'Credit Card', 'Investment', 'Loan', 'Mortgage'
+  ], []);
 
   const loadUsers = async () => {
     if (!user) return;
@@ -1383,6 +1399,9 @@ export const useFinanceData = () => {
     vestingSchedules,
     monthlyAllocations,
     loading,
+    dataReady,
+    expenseCategories,
+    accountTypes,
     addTransaction,
     updateTransaction,
     deleteTransaction,

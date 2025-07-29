@@ -168,10 +168,43 @@ const Expenses: React.FC = () => {
 
   const handleFiles = useCallback(async (files: FileList) => {
     setUploading(true);
+    setUploadResults([]); // Clear previous results
     const results: typeof uploadResults = [];
+    const fileArray = Array.from(files);
 
-    for (const file of Array.from(files)) {
+    // Validate files first
+    const validFiles = fileArray.filter(file => {
+      const isValidType = file.name.toLowerCase().endsWith('.csv') || file.name.toLowerCase().endsWith('.pdf');
+      const isValidSize = file.size <= 10 * 1024 * 1024; // 10MB limit
+      
+      if (!isValidType) {
+        results.push({
+          success: false,
+          message: `❌ "${file.name}" - Unsupported file type. Please upload CSV or PDF files only.`,
+        });
+      } else if (!isValidSize) {
+        results.push({
+          success: false,
+          message: `❌ "${file.name}" - File too large. Maximum size is 10MB.`,
+        });
+      }
+      
+      return isValidType && isValidSize;
+    });
+
+    if (validFiles.length === 0) {
+      setUploadResults(results);
+      setUploading(false);
+      return;
+    }
+
+    showToast.info(`Processing ${validFiles.length} file${validFiles.length === 1 ? '' : 's'}...`);
+
+    for (let i = 0; i < validFiles.length; i++) {
+      const file = validFiles[i];
       try {
+        showToast.info(`📄 Reading "${file.name}" (${i + 1}/${validFiles.length})`);
+        
         const content = await readFile(file);
         let transactions;
 
@@ -179,15 +212,9 @@ const Expenses: React.FC = () => {
           transactions = parseCSV(content, users[0]?.id);
         } else if (file.name.toLowerCase().endsWith('.pdf')) {
           transactions = parsePDF(content, users[0]?.id);
-        } else {
-          results.push({
-            success: false,
-            message: `Unsupported file type: ${file.name}`,
-          });
-          continue;
         }
 
-        if (transactions.length > 0) {
+        if (transactions && transactions.length > 0) {
           // Debug: Log first few transactions to verify parsing
           console.log('📊 Sample transactions parsed:', transactions.slice(0, 3).map(t => ({
             description: t.description,
@@ -202,25 +229,41 @@ const Expenses: React.FC = () => {
           
           results.push({
             success: true,
-            message: `Found ${transactions.length} transactions ready for review`,
+            message: `✅ "${file.name}" - Found ${transactions.length} transaction${transactions.length === 1 ? '' : 's'} ready for review`,
             transactionCount: transactions.length,
           });
+          
+          showToast.success(`Found ${transactions.length} transactions in "${file.name}"`);
         } else {
           results.push({
             success: false,
-            message: `No valid transactions found in ${file.name}`,
+            message: `⚠️ "${file.name}" - No valid transactions found. Please check the file format and try again.`,
           });
+          showToast.error(`No transactions found in "${file.name}"`);
         }
       } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
         results.push({
           success: false,
-          message: `Error processing ${file.name}: ${error instanceof Error ? error.message : 'Unknown error'}`,
+          message: `❌ "${file.name}" - Processing failed: ${errorMessage}`,
         });
+        showToast.error(`Failed to process "${file.name}": ${errorMessage}`);
       }
     }
 
     setUploadResults(results);
     setUploading(false);
+    
+    const successCount = results.filter(r => r.success).length;
+    const failureCount = results.filter(r => !r.success).length;
+    
+    if (successCount > 0 && failureCount === 0) {
+      showToast.success(`All ${successCount} file${successCount === 1 ? '' : 's'} processed successfully! 🎉`);
+    } else if (successCount > 0 && failureCount > 0) {
+      showToast.warning(`${successCount} file${successCount === 1 ? '' : 's'} processed, ${failureCount} failed. Check results below.`);
+    } else {
+      showToast.error(`Failed to process any files. Please check the formats and try again.`);
+    }
   }, [users]); // Removed addTransaction dependency to prevent automatic calling
 
   const readFile = (file: File): Promise<string> => {

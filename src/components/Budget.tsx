@@ -4,6 +4,7 @@ import BudgetEditor from './BudgetEditor';
 import { useFinanceData } from '../hooks/useFinanceData';
 import { useAuth } from '../contexts/AuthContext';
 import { Budget as BudgetType, BudgetCategory } from '../types';
+import SecureStorage from '../utils/secureStorage';
 
 const Budget: React.FC = () => {
   const { user, profile } = useAuth();
@@ -49,6 +50,8 @@ const Budget: React.FC = () => {
 
   // Feedback states
   const [feedbackMessage, setFeedbackMessage] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [isDraftSaving, setIsDraftSaving] = useState(false);
 
   // Calculate running totals for real-time feedback
   const totalBudget = useMemo(() => {
@@ -71,6 +74,130 @@ const Budget: React.FC = () => {
 
   const remainingBudget = totalBudget - categoryTotal;
   const isOverBudget = categoryTotal > totalBudget && totalBudget > 0;
+
+  // Historical expense analysis for auto-suggestions
+  const expenseSuggestions = useMemo(() => {
+    if (!transactions || transactions.length === 0) return {};
+    
+    // Get last 3 months of expenses
+    const threeMonthsAgo = new Date();
+    threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
+    
+    const recentExpenses = transactions.filter((t: any) => 
+      t.amount < 0 && new Date(t.date) >= threeMonthsAgo
+    );
+    
+    // Group by category and calculate average monthly spending
+    const categorySpending = recentExpenses.reduce((acc: any, transaction: any) => {
+      const category = transaction.category || 'Other';
+      if (!acc[category]) acc[category] = [];
+      acc[category].push(Math.abs(transaction.amount));
+      return acc;
+    }, {});
+    
+    // Calculate average monthly spending per category
+    const suggestions: any = {};
+    Object.entries(categorySpending).forEach(([category, amounts]: [string, any]) => {
+      const total = amounts.reduce((sum: number, amount: number) => sum + amount, 0);
+      const monthlyAverage = total / 3; // 3 months of data
+      suggestions[category] = Math.round(monthlyAverage);
+    });
+    
+    return suggestions;
+  }, [transactions]);
+
+  // Auto-suggest budget allocation
+  const applySuggestions = () => {
+    if (!totalBudget || totalBudget <= 0) return;
+    
+    const totalSuggested = Object.values(expenseSuggestions).reduce((sum: number, amount: any) => sum + amount, 0);
+    
+    if (totalSuggested <= 0) return;
+    
+    // Scale suggestions to fit within total budget
+    const scaleFactor = Math.min(1, (totalBudget * 0.9) / totalSuggested); // Leave 10% buffer
+    
+    const scaledSuggestions: any = {};
+    Object.entries(expenseSuggestions).forEach(([category, amount]: [string, any]) => {
+      scaledSuggestions[category] = Math.round(amount * scaleFactor).toString();
+    });
+    
+    setBudgetFormData(prev => ({
+      ...prev,
+      categories: { ...prev.categories, ...scaledSuggestions }
+    }));
+    
+    setShowSuggestions(false);
+  };
+
+  // Save draft functionality
+  const saveDraft = async () => {
+    setIsDraftSaving(true);
+    try {
+      const draftKey = `budget_draft_${budgetFormData.userId}_${selectedMonth}`;
+      const success = SecureStorage.setItem(draftKey, {
+        ...budgetFormData,
+        savedAt: new Date().toISOString(),
+        isDraft: true
+      }, {
+        encrypt: true,
+        expiry: 7 * 24 * 60 * 60 * 1000, // 7 days
+        allowSensitive: false
+      });
+      
+      if (success) {
+        setFeedbackMessage({ 
+          type: 'success', 
+          message: 'Budget draft saved securely! You can continue editing later.' 
+        });
+      } else {
+        setFeedbackMessage({ 
+          type: 'error', 
+          message: 'Failed to save draft. Storage may be full or data contains sensitive information.' 
+        });
+      }
+      
+      setTimeout(() => setFeedbackMessage(null), 3000);
+    } catch (error) {
+      setFeedbackMessage({ 
+        type: 'error', 
+        message: 'Failed to save draft. Please try again.' 
+      });
+    } finally {
+      setIsDraftSaving(false);
+    }
+  };
+
+  // Load draft on form open
+  useEffect(() => {
+    if (showBudgetForm && budgetFormData.userId) {
+      const draftKey = `budget_draft_${budgetFormData.userId}_${selectedMonth}`;
+      const savedDraft = SecureStorage.getItem(draftKey);
+      
+      if (savedDraft) {
+        try {
+          setBudgetFormData(prev => ({
+            ...prev,
+            totalBudget: savedDraft.totalBudget || '',
+            categories: savedDraft.categories || {}
+          }));
+          
+          const draftAge = Date.now() - new Date(savedDraft.savedAt).getTime();
+          const hoursOld = Math.floor(draftAge / (1000 * 60 * 60));
+          
+          setFeedbackMessage({
+            type: 'success',
+            message: `Draft loaded! Saved ${hoursOld > 0 ? `${hoursOld} hours` : 'recently'} ago.`
+          });
+          
+          setTimeout(() => setFeedbackMessage(null), 3000);
+        } catch (error) {
+          console.error('Error loading draft:', error);
+          SecureStorage.removeItem(draftKey); // Clean up corrupted draft
+        }
+      }
+    }
+  }, [showBudgetForm, budgetFormData.userId, selectedMonth]);
 
   const expenseCategories = [
     'Groceries', 'Dining', 'Transportation', 'Utilities', 'Housing', 
@@ -133,6 +260,10 @@ const Budget: React.FC = () => {
       }
 
       await createMonthlyBudget(budgetFormData.userId, `${selectedMonth}-01`, totalBudget, categoryBreakdown);
+      
+      // Clear the draft
+      const draftKey = `budget_draft_${budgetFormData.userId}_${selectedMonth}`;
+      SecureStorage.removeItem(draftKey);
       
       // Success feedback
       const userName = availableUsers.find(u => u.id === budgetFormData.userId)?.name || 'User';
@@ -441,6 +572,17 @@ const Budget: React.FC = () => {
             </div>
             
             <form onSubmit={handleCreateBudget} className="p-4 lg:p-6 space-y-4 lg:space-y-6">
+              {/* Feedback Messages */}
+              {feedbackMessage && (
+                <div className={`p-3 rounded-lg border ${
+                  feedbackMessage.type === 'success' 
+                    ? 'bg-green-50 border-green-200 text-green-800' 
+                    : 'bg-red-50 border-red-200 text-red-800'
+                }`}>
+                  {feedbackMessage.message}
+                </div>
+              )}
+
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -485,74 +627,145 @@ const Budget: React.FC = () => {
                 </div>
               </div>
 
-              <div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Category Allocation</h3>
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                  {expenseCategories.map(category => (
-                    <div key={category}>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        {category}
-                      </label>
-                      <input
-                        type="number"
-                        value={budgetFormData.categories[category] || ''}
-                        onChange={(e) => setBudgetFormData(prev => ({
-                          ...prev,
-                          categories: { ...prev.categories, [category]: e.target.value }
-                        }))}
-                        placeholder="0"
-                        min="0"
-                        step="0.01"
-                        className="w-full px-3 py-3 lg:py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-base lg:text-sm min-h-[44px]"
-                      />
-                    </div>
-                  ))}
-                </div>
-                
-                <div className={`mt-4 p-4 rounded-lg border-2 ${
+              {/* Sticky Budget Summary */}
+              {totalBudget > 0 && (
+                <div className={`sticky top-0 z-10 p-4 rounded-lg border-2 shadow-lg ${
                   isOverBudget 
                     ? 'bg-red-50 border-red-200' 
                     : remainingBudget === 0 && totalBudget > 0
                     ? 'bg-green-50 border-green-200'
                     : 'bg-blue-50 border-blue-200'
                 }`}>
-                  <h4 className="font-medium text-gray-900 mb-3">Budget Summary</h4>
+                  <div className="flex items-center justify-between mb-2">
+                    <h4 className="font-medium text-gray-900">Budget Summary</h4>
+                    <div className="flex items-center gap-2">
+                      {Object.keys(expenseSuggestions).length > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => setShowSuggestions(!showSuggestions)}
+                          className="text-xs px-2 py-1 bg-purple-100 text-purple-700 rounded hover:bg-purple-200"
+                        >
+                          💡 Smart Suggestions
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={saveDraft}
+                        disabled={isDraftSaving}
+                        className="text-xs px-2 py-1 bg-gray-100 text-gray-700 rounded hover:bg-gray-200 disabled:opacity-50"
+                      >
+                        {isDraftSaving ? 'Saving...' : '💾 Save Draft'}
+                      </button>
+                    </div>
+                  </div>
                   
-                  <div className="space-y-2 text-sm">
-                    <div className="flex justify-between">
-                      <span>Total Budget:</span>
-                      <span className="font-semibold">€{totalBudget.toLocaleString()}</span>
+                  <div className="grid grid-cols-3 gap-4 text-sm">
+                    <div className="text-center">
+                      <div className="font-semibold text-lg">€{totalBudget.toLocaleString()}</div>
+                      <div className="text-gray-600">Total Budget</div>
                     </div>
-                    
-                    <div className="flex justify-between">
-                      <span>Total Allocated:</span>
-                      <span className={`font-semibold ${isOverBudget ? 'text-red-600' : 'text-gray-900'}`}>
+                    <div className="text-center">
+                      <div className={`font-semibold text-lg ${isOverBudget ? 'text-red-600' : 'text-gray-900'}`}>
                         €{categoryTotal.toLocaleString()}
-                      </span>
+                      </div>
+                      <div className="text-gray-600">Allocated</div>
                     </div>
-                    
-                    <div className="flex justify-between border-t border-gray-200 pt-2">
-                      <span>Remaining:</span>
-                      <span className={`font-bold ${
+                    <div className="text-center">
+                      <div className={`font-bold text-lg ${
                         isOverBudget ? 'text-red-600' : remainingBudget === 0 ? 'text-green-600' : 'text-blue-600'
                       }`}>
                         €{remainingBudget.toLocaleString()}
-                      </span>
+                      </div>
+                      <div className="text-gray-600">Remaining</div>
                     </div>
                   </div>
                   
                   {isOverBudget && (
-                    <div className="mt-3 p-2 bg-red-100 border border-red-300 rounded text-red-800 text-sm">
-                      ⚠️ <strong>Over Budget!</strong> You've allocated €{(categoryTotal - totalBudget).toLocaleString()} more than your budget allows.
-                    </div>
-                  )}
-                  
-                  {remainingBudget === 0 && totalBudget > 0 && !isOverBudget && (
-                    <div className="mt-3 p-2 bg-green-100 border border-green-300 rounded text-green-800 text-sm">
-                      ✅ <strong>Perfect!</strong> You've allocated your entire budget.
+                    <div className="mt-2 p-2 bg-red-100 border border-red-300 rounded text-red-800 text-xs">
+                      ⚠️ <strong>Over Budget!</strong> Reduce allocations by €{(categoryTotal - totalBudget).toLocaleString()}
                     </div>
                   )}
                 </div>
+              )}
+
+              {/* Smart Suggestions Panel */}
+              {showSuggestions && Object.keys(expenseSuggestions).length > 0 && (
+                <div className="p-4 bg-purple-50 border border-purple-200 rounded-lg">
+                  <div className="flex items-center justify-between mb-3">
+                    <h4 className="font-medium text-purple-900">💡 Based on your last 3 months</h4>
+                    <button
+                      type="button"
+                      onClick={applySuggestions}
+                      className="px-3 py-1 bg-purple-600 text-white text-sm rounded hover:bg-purple-700"
+                    >
+                      Apply Suggestions
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 text-sm">
+                    {Object.entries(expenseSuggestions).slice(0, 8).map(([category, amount]: [string, any]) => (
+                      <div key={category} className="flex justify-between p-2 bg-white rounded">
+                        <span className="text-gray-700">{category}</span>
+                        <span className="font-medium">€{amount}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">Category Allocation</h3>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                  {expenseCategories.map(category => {
+                    const suggestion = expenseSuggestions[category];
+                    const currentValue = budgetFormData.categories[category] || '';
+                    const isOverSuggestion = suggestion && parseFloat(currentValue) > suggestion * 1.5;
+                    
+                    return (
+                      <div key={category} className="relative">
+                        <div className="flex items-center justify-between mb-1">
+                          <label className="block text-sm font-medium text-gray-700">
+                            {category}
+                          </label>
+                          {suggestion && (
+                            <button
+                              type="button"
+                              onClick={() => setBudgetFormData(prev => ({
+                                ...prev,
+                                categories: { ...prev.categories, [category]: suggestion.toString() }
+                              }))}
+                              className="text-xs text-purple-600 hover:text-purple-800"
+                              title={`Your avg: €${suggestion}`}
+                            >
+                              💡 €{suggestion}
+                            </button>
+                          )}
+                        </div>
+                        <input
+                          type="number"
+                          value={currentValue}
+                          onChange={(e) => setBudgetFormData(prev => ({
+                            ...prev,
+                            categories: { ...prev.categories, [category]: e.target.value }
+                          }))}
+                          placeholder={suggestion ? `${suggestion}` : '0'}
+                          min="0"
+                          step="0.01"
+                          className={`w-full px-3 py-3 lg:py-2 border rounded-lg focus:outline-none focus:ring-2 text-base lg:text-sm min-h-[44px] ${
+                            isOverSuggestion 
+                              ? 'border-yellow-300 focus:ring-yellow-500 bg-yellow-50' 
+                              : 'border-gray-300 focus:ring-blue-500'
+                          }`}
+                        />
+                        {isOverSuggestion && (
+                          <p className="text-xs text-yellow-600 mt-1">
+                            ⚠️ 50% higher than your average (€{suggestion})
+                          </p>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+
               </div>
 
               <div className="flex flex-col sm:flex-row gap-3 pt-4">

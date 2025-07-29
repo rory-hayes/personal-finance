@@ -1,6 +1,6 @@
 import React from 'react';
 import { Settings, X, Maximize2, Minimize2 } from 'lucide-react';
-import { DashboardCard as DashboardCardType, CardSize, CARD_SIZES } from '../../types/dashboard';
+import { DashboardCard as DashboardCardType, CardSize } from '../../types/dashboard';
 
 interface DashboardCardProps {
   card: DashboardCardType;
@@ -19,8 +19,6 @@ const DashboardCard: React.FC<DashboardCardProps> = ({
   editMode = false,
   children
 }) => {
-  const sizeConfig = CARD_SIZES[card.size];
-  
   const getSizeClasses = (size: CardSize): string => {
     switch (size) {
       case 'quarter':
@@ -117,4 +115,4 @@ const DashboardCard: React.FC<DashboardCardProps> = ({
   );
 };
 
-export default DashboardCard; 
+export default React.memo(DashboardCard); 

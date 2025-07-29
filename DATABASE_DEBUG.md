@@ -31,7 +31,7 @@ Try this in your browser console:
 // Test basic connectivity
 fetch('https://ewdbxufcmqlzmifkkqkx.supabase.co/rest/v1/', {
   headers: {
-    'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV3ZGJ4dWZjbXFsem1pZmtrcWt4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Mzc2MzE3NTcsImV4cCI6MjA1MzIwNzc1N30.qRAVwKsGPwm-dXLQZd6CX4FWr7ZFVZgNdz5N_yZdKIE'
+    'apikey': 'YOUR_DUMMY_API_KEY_EXAMPLE_ONLY_DO_NOT_USE_IN_PRODUCTION'7ZFVZgNdz5N_yZdKIE'
   }
 })
 .then(r => r.json())

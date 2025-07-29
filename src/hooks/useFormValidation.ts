@@ -136,15 +136,33 @@ export const validationPatterns = {
 // Common validation rules
 export const commonValidationRules = {
   required: { required: true },
-  email: { required: true, pattern: validationPatterns.email },
-  password: { required: true, minLength: 6 },
+  email: { 
+    required: true, 
+    pattern: validationPatterns.email,
+    custom: (value: string) => {
+      if (!value.trim()) return 'Email address is required';
+      if (!validationPatterns.email.test(value)) return 'Please enter a valid email address (e.g., user@example.com)';
+      return null;
+    }
+  },
+  password: { 
+    required: true, 
+    minLength: 6,
+    custom: (value: string) => {
+      if (!value) return 'Password is required';
+      if (value.length < 6) return 'Password must be at least 6 characters long for security';
+      return null;
+    }
+  },
   positiveNumber: { 
     required: true, 
     custom: (value: string) => {
+      if (!value.trim()) return 'This field is required';
       const num = parseFloat(value);
       if (isNaN(num)) return 'Please enter a valid number';
-      if (num < 0) return 'Value must be positive';
-      if (num === 0) return 'Value must be greater than 0';
+      if (num < 0) return 'Amount cannot be negative. Please enter a positive value.';
+      if (num === 0) return 'Amount must be greater than zero';
+      if (num > 1000000) return 'Amount seems unusually large. Please verify the value.';
       return null;
     }
   },
@@ -153,9 +171,61 @@ export const commonValidationRules = {
       if (!value.trim()) return null;
       const num = parseFloat(value);
       if (isNaN(num)) return 'Please enter a valid number';
-      if (num < 0) return 'Value must be positive';
+      if (num < 0) return 'Amount cannot be negative. Please enter a positive value.';
+      if (num > 1000000) return 'Amount seems unusually large. Please verify the value.';
       return null;
     }
   },
-  name: { required: true, minLength: 2, maxLength: 50 }
+  name: { 
+    required: true, 
+    minLength: 2, 
+    maxLength: 50,
+    custom: (value: string) => {
+      if (!value.trim()) return 'Name is required';
+      if (value.trim().length < 2) return 'Name must be at least 2 characters long';
+      if (value.trim().length > 50) return 'Name cannot exceed 50 characters';
+      if (!/^[a-zA-Z\s\-'\.]+$/.test(value.trim())) return 'Name can only contain letters, spaces, hyphens, apostrophes, and periods';
+      return null;
+    }
+  },
+  monthlyIncome: {
+    required: true,
+    custom: (value: string) => {
+      if (!value.trim()) return 'Monthly income is required';
+      const num = parseFloat(value);
+      if (isNaN(num)) return 'Please enter a valid monthly income amount';
+      if (num < 0) return 'Monthly income cannot be negative. Please enter your actual income.';
+      if (num > 100000) return 'Monthly income seems unusually high. Please verify this amount.';
+      return null;
+    }
+  },
+  futureDate: {
+    required: true,
+    custom: (value: string) => {
+      if (!value.trim()) return 'Target date is required';
+      const selectedDate = new Date(value);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      
+      if (isNaN(selectedDate.getTime())) return 'Please enter a valid date';
+      if (selectedDate <= today) return 'Target date must be in the future';
+      
+      const tenYearsFromNow = new Date();
+      tenYearsFromNow.setFullYear(tenYearsFromNow.getFullYear() + 10);
+      if (selectedDate > tenYearsFromNow) return 'Target date cannot be more than 10 years in the future';
+      
+      return null;
+    }
+  },
+  budgetAmount: {
+    required: true,
+    custom: (value: string) => {
+      if (!value.trim()) return 'Budget amount is required';
+      const num = parseFloat(value);
+      if (isNaN(num)) return 'Please enter a valid budget amount';
+      if (num <= 0) return 'Budget amount must be greater than zero';
+      if (num > 50000) return 'Monthly budget seems unusually high. Please verify this amount.';
+      return null;
+    }
+  }
 }; 
