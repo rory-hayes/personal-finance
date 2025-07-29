@@ -12,15 +12,21 @@ const BudgetEditor: React.FC<{ budgetId: string; onClose: () => void }> = ({ bud
   const { budgets, budgetCategories, updateBudget } = useFinanceData();
   const [totalAmount, setTotalAmount] = useState('');
   const [categories, setCategories] = useState<{ category: string; allocated: string }[]>([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [hasInitialized, setHasInitialized] = useState(false);
 
   useEffect(() => {
+    // Only initialize once or when budgetId changes, not during submission
+    if (isSubmitting && hasInitialized) return;
+    
     const budget = budgets.find((b) => b.id === budgetId);
     if (budget) {
       setTotalAmount(budget.totalBudget.toString());
       const cats = budgetCategories.filter((c) => c.budgetId === budget.id);
       setCategories(cats.map((c) => ({ category: c.category, allocated: c.allocatedAmount.toString() })));
+      setHasInitialized(true);
     }
-  }, [budgetId, budgets, budgetCategories]);
+  }, [budgetId, budgets, budgetCategories, isSubmitting, hasInitialized]);
 
   const handleCategoryChange = (index: number, field: string, value: string) => {
     setCategories((prev) => prev.map((c, i) => (i === index ? { ...c, [field]: value } : c)));
@@ -32,9 +38,12 @@ const BudgetEditor: React.FC<{ budgetId: string; onClose: () => void }> = ({ bud
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (isSubmitting) return; // Prevent double submission
+    
     const parsedTotal = parseFloat(totalAmount);
     if (isNaN(parsedTotal) || parsedTotal <= 0) {
-      showToast.error('Please enter a valid total budget');
+      showToast.error('Please enter a valid total budget amount greater than 0.');
       return;
     }
 
@@ -45,19 +54,21 @@ const BudgetEditor: React.FC<{ budgetId: string; onClose: () => void }> = ({ bud
     
     const totalAllocated = categoryBreakdown.reduce((sum, cat) => sum + cat.allocatedAmount, 0);
     
-    // Prevent submission if allocations exceed budget
+    // Allow submission even if not perfectly balanced, but warn if over budget
     if (totalAllocated > parsedTotal) {
-      showToast.error(`Category allocations (€${totalAllocated.toLocaleString()}) exceed total budget (€${parsedTotal.toLocaleString()})`);
+      showToast.error(`Category allocations (€${totalAllocated.toLocaleString()}) exceed total budget (€${parsedTotal.toLocaleString()}). Please adjust your allocations.`);
       return;
     }
 
+    setIsSubmitting(true);
     try {
       await updateBudget(budgetId, parsedTotal, categoryBreakdown);
-      showToast.success('Budget updated successfully!');
+      showToast.success(`Budget updated successfully! Total: €${parsedTotal.toLocaleString()}, Categories: ${categoryBreakdown.length}`);
       onClose();
     } catch (error) {
       console.error('Error updating budget:', error);
-      showToast.error('Failed to update budget. Please try again.');
+      showToast.error('Failed to update budget. Please check your internet connection and try again.');
+      setIsSubmitting(false); // Re-enable submission on error
     }
   };
 
@@ -161,14 +172,19 @@ const BudgetEditor: React.FC<{ budgetId: string; onClose: () => void }> = ({ bud
         <div className="flex gap-3 pt-4">
           <button
             type="submit"
-            disabled={isOverBudget}
+            disabled={isOverBudget || isSubmitting}
             className={`flex-1 px-4 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-offset-2 transition-colors ${
-              isOverBudget
+              isOverBudget || isSubmitting
                 ? 'bg-gray-400 text-gray-200 cursor-not-allowed'
                 : 'bg-blue-600 text-white hover:bg-blue-700 focus:ring-blue-500'
             }`}
           >
-            {isOverBudget ? 'Fix Allocations First' : 'Update Budget'}
+            {isSubmitting 
+              ? 'Updating Budget...' 
+              : isOverBudget 
+                ? 'Fix Allocations First' 
+                : 'Update Budget'
+            }
           </button>
           <button
             type="button"

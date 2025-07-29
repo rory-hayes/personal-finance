@@ -207,24 +207,40 @@ const Users: React.FC = () => {
   };
 
   const handleSaveIncome = async () => {
-    if (editingUser) {
-      const income = parseFloat(editingIncome);
-      if (!isNaN(income) && income >= 0) {
-        try {
-          await updateUserIncome(editingUser, income);
-          // Success feedback could be added here
-          console.log('✅ Income updated successfully');
-        } catch (error) {
-          console.error('❌ Failed to update income:', error);
-          showToast.updateFailed('income');
-          return; // Don't close the editor on error
-        }
-      } else {
-        showToast.validationError('Please enter a valid positive number for monthly income.');
-        return;
-      }
+    if (!editingUser) return;
+    
+    const incomeStr = editingIncome.trim();
+    
+    if (!incomeStr) {
+      showToast.validationError('Monthly income cannot be empty. Please enter a valid amount.');
+      return;
+    }
+    
+    const income = parseFloat(incomeStr);
+    
+    if (isNaN(income)) {
+      showToast.validationError('Please enter a valid number for monthly income.');
+      return;
+    }
+    
+    if (income < 0) {
+      showToast.validationError('Monthly income cannot be negative. Please enter your actual income.');
+      return;
+    }
+    
+    if (income > 1000000) {
+      showToast.validationError('Monthly income seems unusually high. Please verify this amount.');
+      return;
+    }
+    
+    try {
+      await updateUserIncome(editingUser, income);
+      showToast.success(`Monthly income updated to €${income.toLocaleString()}!`);
       setEditingUser(null);
       setEditingIncome('');
+    } catch (error) {
+      console.error('❌ Failed to update income:', error);
+      showToast.error('Failed to update monthly income. Please try again.');
     }
   };
 
@@ -239,18 +255,41 @@ const Users: React.FC = () => {
   };
 
   const handleSaveName = async () => {
-    if (editingNameUser && newName.trim()) {
-      try {
-        await updateUser(editingNameUser, { name: newName.trim() });
-        showToast.success('Member name updated successfully!');
-      } catch (e) {
-        console.error('Failed to update name', e);
-        showToast.error('Failed to update member name. Please try again.');
-        return;
-      }
+    if (!editingNameUser) return;
+    
+    const trimmedName = newName.trim();
+    
+    if (!trimmedName) {
+      showToast.validationError('Name cannot be empty. Please enter a valid name.');
+      return;
     }
-    setEditingNameUser(null);
-    setNewName('');
+    
+    if (trimmedName.length < 2) {
+      showToast.validationError('Name must be at least 2 characters long.');
+      return;
+    }
+    
+    if (trimmedName.length > 50) {
+      showToast.validationError('Name cannot exceed 50 characters.');
+      return;
+    }
+    
+    // Check if name already exists for another user
+    const existingUser = users.find(u => u.id !== editingNameUser && u.name.toLowerCase() === trimmedName.toLowerCase());
+    if (existingUser) {
+      showToast.validationError('This name is already taken by another household member.');
+      return;
+    }
+    
+    try {
+      await updateUser(editingNameUser, { name: trimmedName });
+      showToast.success('Member name updated successfully!');
+      setEditingNameUser(null);
+      setNewName('');
+    } catch (e) {
+      console.error('Failed to update name', e);
+      showToast.error('Failed to update member name. Please try again.');
+    }
   };
 
   const handleDeleteUserClick = (id: string, name: string) => {
@@ -722,15 +761,34 @@ const Users: React.FC = () => {
                   </div>
                   <div>
                     {editingNameUser === user.id ? (
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="text"
-                          value={newName}
-                          onChange={e => setNewName(e.target.value)}
-                          className="border rounded px-2 py-1"
-                        />
-                        <button onClick={handleSaveName} className="text-green-600">✓</button>
-                        <button onClick={() => {setEditingNameUser(null);setNewName('');}} className="text-red-600">✕</button>
+                      <div className="flex items-center gap-2 p-2 bg-blue-50 border border-blue-200 rounded-lg">
+                        <div className="flex-1">
+                          <label className="block text-xs text-blue-700 mb-1">Editing Name:</label>
+                          <input
+                            type="text"
+                            value={newName}
+                            onChange={e => setNewName(e.target.value)}
+                            className="w-full border border-blue-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            placeholder="Enter member name"
+                            autoFocus
+                          />
+                        </div>
+                        <div className="flex gap-1">
+                          <button 
+                            onClick={handleSaveName} 
+                            className="px-3 py-2 bg-green-600 text-white rounded text-sm hover:bg-green-700 min-w-[44px] min-h-[44px] flex items-center justify-center"
+                            title="Save name changes"
+                          >
+                            ✓
+                          </button>
+                          <button 
+                            onClick={() => {setEditingNameUser(null);setNewName('');}} 
+                            className="px-3 py-2 bg-gray-600 text-white rounded text-sm hover:bg-gray-700 min-w-[44px] min-h-[44px] flex items-center justify-center"
+                            title="Cancel editing"
+                          >
+                            ✕
+                          </button>
+                        </div>
                       </div>
                     ) : (
                       <div className="flex items-center gap-2">
@@ -762,27 +820,40 @@ const Users: React.FC = () => {
                 <div className="flex items-center gap-4">
                   <div className="text-right">
                     {editingUser === user.id ? (
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="number"
-                          value={editingIncome}
-                          onChange={(e) => setEditingIncome(e.target.value)}
-                          className="text-xl font-bold text-gray-900 border border-gray-300 rounded px-2 py-1 w-32"
-                          min="0"
-                          step="0.01"
-                        />
-                        <button
-                          onClick={handleSaveIncome}
-                          className="text-green-600 hover:text-green-700"
-                        >
-                          ✓
-                        </button>
-                        <button
-                          onClick={handleCancelEdit}
-                          className="text-red-600 hover:text-red-700"
-                        >
-                          ✕
-                        </button>
+                      <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
+                        <label className="block text-xs text-green-700 mb-2">Editing Monthly Income:</label>
+                        <div className="flex items-center gap-2">
+                          <div className="relative flex-1">
+                            <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500">€</span>
+                            <input
+                              type="number"
+                              value={editingIncome}
+                              onChange={(e) => setEditingIncome(e.target.value)}
+                              className="w-full pl-8 pr-3 py-2 text-lg font-semibold border border-green-300 rounded focus:outline-none focus:ring-2 focus:ring-green-500"
+                              min="0"
+                              step="0.01"
+                              placeholder="0.00"
+                              autoFocus
+                            />
+                          </div>
+                          <div className="flex gap-1">
+                            <button
+                              onClick={handleSaveIncome}
+                              className="px-3 py-2 bg-green-600 text-white rounded text-sm hover:bg-green-700 min-w-[44px] min-h-[44px] flex items-center justify-center"
+                              title="Save income changes"
+                            >
+                              ✓
+                            </button>
+                            <button
+                              onClick={handleCancelEdit}
+                              className="px-3 py-2 bg-gray-600 text-white rounded text-sm hover:bg-gray-700 min-w-[44px] min-h-[44px] flex items-center justify-center"
+                              title="Cancel editing"
+                            >
+                              ✕
+                            </button>
+                          </div>
+                        </div>
+                        <p className="text-xs text-green-600 mt-1">Enter monthly income amount</p>
                       </div>
                     ) : (
                       <div className="flex items-center gap-2">

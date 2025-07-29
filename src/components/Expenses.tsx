@@ -60,6 +60,8 @@ const Expenses: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [dateFilter, setDateFilter] = useState('all');
+  const [minAmount, setMinAmount] = useState('');
+  const [maxAmount, setMaxAmount] = useState('');
   const [editingExpense, setEditingExpense] = useState<Transaction | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [expenseToDelete, setExpenseToDelete] = useState<Transaction | null>(null);
@@ -614,7 +616,9 @@ const Expenses: React.FC = () => {
                     <Edit3 className="h-5 w-5 text-gray-600" />
                   </div>
                   <div className="flex-1">
-                    <h4 className="font-medium text-gray-900">Manage Recurring ({recurringExpenses.length})</h4>
+                    <h4 className="font-medium text-gray-900">
+                      Manage Recurring ({recurringExpenses.filter(e => e.active !== false).length} active, {recurringExpenses.length} total)
+                    </h4>
                     <p className="text-sm text-gray-600">Edit or cancel scheduled expenses</p>
                   </div>
                 </div>
@@ -622,24 +626,29 @@ const Expenses: React.FC = () => {
             </div>
 
             {/* Quick Recurring Expenses Preview */}
-            {recurringExpenses.length > 0 && (
-              <div className="mt-4 p-3 bg-gray-50 rounded-lg">
-                <h5 className="text-sm font-medium text-gray-700 mb-2">Active Recurring:</h5>
-                <div className="space-y-1">
-                  {recurringExpenses.slice(0, 3).map((expense, index) => (
-                    <div key={index} className="flex justify-between text-sm">
-                      <span className="text-gray-600">{expense.description}</span>
-                      <span className="font-medium">€{Math.abs(expense.amount)}</span>
-                    </div>
-                  ))}
-                  {recurringExpenses.length > 3 && (
-                    <div className="text-xs text-gray-500 pt-1">
-                      +{recurringExpenses.length - 3} more...
-                    </div>
-                  )}
+            {(() => {
+              const activeRecurringExpenses = recurringExpenses.filter(expense => expense.active !== false);
+              return activeRecurringExpenses.length > 0 && (
+                <div className="mt-4 p-3 bg-gray-50 rounded-lg">
+                  <h5 className="text-sm font-medium text-gray-700 mb-2">
+                    Active Recurring ({activeRecurringExpenses.length}):
+                  </h5>
+                  <div className="space-y-1">
+                    {activeRecurringExpenses.slice(0, 3).map((expense, index) => (
+                      <div key={expense.id || index} className="flex justify-between text-sm">
+                        <span className="text-gray-600">{expense.description}</span>
+                        <span className="font-medium">€{Math.abs(expense.amount)}</span>
+                      </div>
+                    ))}
+                    {activeRecurringExpenses.length > 3 && (
+                      <div className="text-xs text-gray-500 pt-1">
+                        +{activeRecurringExpenses.length - 3} more...
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </div>
-            )}
+              );
+            })()}
           </div>
         </div>
 
@@ -840,18 +849,20 @@ const Expenses: React.FC = () => {
                 <input
                   type="number"
                   placeholder="Min €"
+                  value={minAmount}
+                  min="0"
+                  step="0.01"
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  onChange={(e) => {
-                    // Add min amount filter state if needed
-                  }}
+                  onChange={(e) => setMinAmount(e.target.value)}
                 />
                 <input
                   type="number"
                   placeholder="Max €"
+                  value={maxAmount}
+                  min="0"
+                  step="0.01"
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  onChange={(e) => {
-                    // Add max amount filter state if needed
-                  }}
+                  onChange={(e) => setMaxAmount(e.target.value)}
                 />
               </div>
 
@@ -860,6 +871,8 @@ const Expenses: React.FC = () => {
                   setSearchTerm('');
                   setSelectedCategory('All');
                   setDateFilter('all');
+                  setMinAmount('');
+                  setMaxAmount('');
                 }}
                 className="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 whitespace-nowrap"
               >
@@ -924,6 +937,23 @@ const Expenses: React.FC = () => {
                   if (dateFilter !== 'all') {
                     const range = getDateRange(dateFilter as 'today' | 'week' | 'month' | 'quarter' | 'year');
                     if (!isDateInRange(transaction.date, range.start, range.end)) {
+                      return false;
+                    }
+                  }
+                  
+                  // Amount filters (Min/Max)
+                  const absoluteAmount = Math.abs(transaction.amount);
+                  
+                  if (minAmount && minAmount.trim() !== '') {
+                    const minValue = parseFloat(minAmount);
+                    if (!isNaN(minValue) && absoluteAmount < minValue) {
+                      return false;
+                    }
+                  }
+                  
+                  if (maxAmount && maxAmount.trim() !== '') {
+                    const maxValue = parseFloat(maxAmount);
+                    if (!isNaN(maxValue) && absoluteAmount > maxValue) {
                       return false;
                     }
                   }

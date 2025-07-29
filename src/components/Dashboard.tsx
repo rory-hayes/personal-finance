@@ -496,7 +496,13 @@ const Dashboard: React.FC = () => {
               </div>
 
               {/* Allocation Form */}
-              {financeData.accounts.length > 0 ? (
+              {financeData.accounts === undefined ? (
+                <div className="text-center py-8 text-gray-500">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                  <p className="text-lg mb-2">Loading accounts...</p>
+                  <p className="text-sm">Please wait while we fetch your account information</p>
+                </div>
+              ) : financeData.accounts.length > 0 ? (
                 <div className="space-y-4">
                   {financeData.accounts.map((account) => (
                     <div key={account.id} className="border border-gray-200 rounded-lg p-4">
@@ -539,7 +545,11 @@ const Dashboard: React.FC = () => {
               ) : (
                 <div className="text-center py-8 text-gray-500">
                   <p className="text-lg mb-2">No accounts found</p>
-                  <p className="text-sm">Create accounts in the Household tab first</p>
+                  <p className="text-sm mb-4">Create accounts in the Household tab first</p>
+                  <div className="space-y-2 text-xs text-gray-400">
+                    <p>💡 Tip: If you just completed onboarding, try refreshing the page</p>
+                    <p>or navigate to the Household tab to verify your accounts were created</p>
+                  </div>
                 </div>
               )}
               

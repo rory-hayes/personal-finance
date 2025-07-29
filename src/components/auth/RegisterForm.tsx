@@ -20,6 +20,39 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSwitchToLogin }) => {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
 
+  // Password strength calculation
+  const calculatePasswordStrength = (password: string) => {
+    let strength = 0;
+    const checks = {
+      length: password.length >= 8,
+      lowercase: /[a-z]/.test(password),
+      uppercase: /[A-Z]/.test(password),
+      number: /\d/.test(password),
+      special: /[!@#$%^&*(),.?":{}|<>]/.test(password),
+    };
+
+    strength += checks.length ? 1 : 0;
+    strength += checks.lowercase ? 1 : 0;
+    strength += checks.uppercase ? 1 : 0;
+    strength += checks.number ? 1 : 0;
+    strength += checks.special ? 1 : 0;
+
+    return { strength, checks };
+  };
+
+  const passwordStrength = calculatePasswordStrength(formData.password);
+  const getStrengthColor = (strength: number) => {
+    if (strength < 2) return 'bg-red-500';
+    if (strength < 4) return 'bg-yellow-500';
+    return 'bg-green-500';
+  };
+
+  const getStrengthText = (strength: number) => {
+    if (strength < 2) return 'Weak';
+    if (strength < 4) return 'Medium';
+    return 'Strong';
+  };
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
@@ -126,7 +159,7 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSwitchToLogin }) => {
         </p>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-6">
+      <form onSubmit={handleSubmit} className="space-y-6" noValidate>
         {error && (
           <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
             <AlertCircle className="h-4 w-4 flex-shrink-0" />
@@ -149,8 +182,8 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSwitchToLogin }) => {
                 onChange={handleChange}
                 className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 placeholder="Enter your full name"
-                required
                 disabled={loading}
+                autoComplete="name"
               />
             </div>
           </div>
@@ -162,15 +195,16 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSwitchToLogin }) => {
             <div className="relative">
               <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
               <input
-                type="email"
+                type="text"
                 id="email"
                 name="email"
                 value={formData.email}
                 onChange={handleChange}
                 className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 placeholder="you@example.com"
-                required
                 disabled={loading}
+                autoComplete="email"
+                inputMode="email"
               />
             </div>
           </div>
@@ -189,9 +223,8 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSwitchToLogin }) => {
                 onChange={handleChange}
                 className="w-full pl-10 pr-10 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 placeholder="Create a password"
-                required
                 disabled={loading}
-                minLength={6}
+                autoComplete="new-password"
               />
               <button
                 type="button"
@@ -206,9 +239,55 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSwitchToLogin }) => {
                 )}
               </button>
             </div>
-            <p className="text-xs text-gray-500 mt-1">
-              Must be at least 6 characters long
-            </p>
+            
+            {/* Password Strength Indicator */}
+            {formData.password && (
+              <div className="mt-2">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-xs text-gray-600">Password strength:</span>
+                  <span className={`text-xs font-medium ${
+                    passwordStrength.strength < 2 ? 'text-red-600' :
+                    passwordStrength.strength < 4 ? 'text-yellow-600' : 'text-green-600'
+                  }`}>
+                    {getStrengthText(passwordStrength.strength)}
+                  </span>
+                </div>
+                <div className="w-full bg-gray-200 rounded-full h-2 mb-2">
+                  <div 
+                    className={`h-2 rounded-full transition-all duration-300 ${getStrengthColor(passwordStrength.strength)}`}
+                    style={{ width: `${(passwordStrength.strength / 5) * 100}%` }}
+                  ></div>
+                </div>
+                <div className="grid grid-cols-2 gap-1 text-xs">
+                  <div className={`flex items-center gap-1 ${passwordStrength.checks.length ? 'text-green-600' : 'text-gray-400'}`}>
+                    <span>{passwordStrength.checks.length ? '✓' : '○'}</span>
+                    <span>8+ characters</span>
+                  </div>
+                  <div className={`flex items-center gap-1 ${passwordStrength.checks.uppercase ? 'text-green-600' : 'text-gray-400'}`}>
+                    <span>{passwordStrength.checks.uppercase ? '✓' : '○'}</span>
+                    <span>Uppercase letter</span>
+                  </div>
+                  <div className={`flex items-center gap-1 ${passwordStrength.checks.lowercase ? 'text-green-600' : 'text-gray-400'}`}>
+                    <span>{passwordStrength.checks.lowercase ? '✓' : '○'}</span>
+                    <span>Lowercase letter</span>
+                  </div>
+                  <div className={`flex items-center gap-1 ${passwordStrength.checks.number ? 'text-green-600' : 'text-gray-400'}`}>
+                    <span>{passwordStrength.checks.number ? '✓' : '○'}</span>
+                    <span>Number</span>
+                  </div>
+                  <div className={`flex items-center gap-1 ${passwordStrength.checks.special ? 'text-green-600' : 'text-gray-400'} col-span-2`}>
+                    <span>{passwordStrength.checks.special ? '✓' : '○'}</span>
+                    <span>Special character (!@#$%^&*)</span>
+                  </div>
+                </div>
+              </div>
+            )}
+            
+            {!formData.password && (
+              <p className="text-xs text-gray-500 mt-1">
+                Must be at least 6 characters long
+              </p>
+            )}
           </div>
 
           <div>
@@ -225,8 +304,8 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSwitchToLogin }) => {
                 onChange={handleChange}
                 className="w-full pl-10 pr-10 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 placeholder="Confirm your password"
-                required
                 disabled={loading}
+                autoComplete="new-password"
               />
               <button
                 type="button"

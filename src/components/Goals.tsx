@@ -336,13 +336,64 @@ const Goals: React.FC = () => {
                 <label htmlFor="targetDate" className="block text-sm font-medium text-gray-700 mb-2">
                   Target Date <span className="text-red-500 ml-1">*</span>
                 </label>
+                
+                {/* Quick Date Buttons */}
+                <div className="flex flex-wrap gap-2 mb-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const date = new Date();
+                      date.setMonth(date.getMonth() + 3);
+                      handleFieldChange('targetDate', date.toISOString().split('T')[0]);
+                    }}
+                    className="px-3 py-1 text-xs bg-blue-100 text-blue-700 rounded-full hover:bg-blue-200 transition-colors"
+                  >
+                    3 months
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const date = new Date();
+                      date.setMonth(date.getMonth() + 6);
+                      handleFieldChange('targetDate', date.toISOString().split('T')[0]);
+                    }}
+                    className="px-3 py-1 text-xs bg-blue-100 text-blue-700 rounded-full hover:bg-blue-200 transition-colors"
+                  >
+                    6 months
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const date = new Date();
+                      date.setFullYear(date.getFullYear() + 1);
+                      handleFieldChange('targetDate', date.toISOString().split('T')[0]);
+                    }}
+                    className="px-3 py-1 text-xs bg-blue-100 text-blue-700 rounded-full hover:bg-blue-200 transition-colors"
+                  >
+                    1 year
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const date = new Date();
+                      date.setMonth(11, 31); // December 31st of current year
+                      if (date < new Date()) {
+                        date.setFullYear(date.getFullYear() + 1); // Next year if current year end has passed
+                      }
+                      handleFieldChange('targetDate', date.toISOString().split('T')[0]);
+                    }}
+                    className="px-3 py-1 text-xs bg-green-100 text-green-700 rounded-full hover:bg-green-200 transition-colors"
+                  >
+                    End of Year
+                  </button>
+                </div>
+                
                 <input
                   type="date"
                   id="targetDate"
                   value={formData.targetDate}
                   onChange={(e) => handleFieldChange('targetDate', e.target.value)}
                   min={getTodayDateString()}
-                  required
                   {...getFieldProps('targetDate')}
                 />
                 {getFieldProps('targetDate').error && (

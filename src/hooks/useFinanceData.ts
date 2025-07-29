@@ -1185,29 +1185,47 @@ export const useFinanceData = () => {
     ) => {
       if (!user) return;
       try {
+        // Update the budget total
         const { error: budgetError } = await supabase
           .from('budgets')
           .update({ total_budget: totalAmount })
           .eq('id', budgetId);
         if (budgetError) throw budgetError;
-        const categoryInserts = categoryBreakdown.map((cat) => ({
-          budget_id: budgetId,
-          category: cat.category,
-          allocated_amount: cat.allocatedAmount,
-        }));
-        const { error: categoriesError } = await supabase
+
+        // First, delete all existing categories for this budget to ensure clean state
+        const { error: deleteError } = await supabase
           .from('budget_categories')
-          .upsert(categoryInserts, {
-            onConflict: 'budget_id,category',
-          });
-        if (categoriesError) throw categoriesError;
+          .delete()
+          .eq('budget_id', budgetId);
+        if (deleteError) throw deleteError;
+
+        // Then insert the new categories (only non-empty ones)
+        const validCategories = categoryBreakdown.filter(cat => 
+          cat.category && cat.category.trim() !== '' && cat.allocatedAmount > 0
+        );
+
+        if (validCategories.length > 0) {
+          const categoryInserts = validCategories.map((cat) => ({
+            budget_id: budgetId,
+            category: cat.category.trim(),
+            allocated_amount: cat.allocatedAmount,
+          }));
+          
+          const { error: categoriesError } = await supabase
+            .from('budget_categories')
+            .insert(categoryInserts);
+          if (categoriesError) throw categoriesError;
+        }
+
+        // Reload the data to reflect changes
         await loadBudgets();
         await loadBudgetCategories();
       } catch (error) {
         console.error('Error updating budget:', error);
+        throw error; // Re-throw to allow caller to handle the error
       }
     },
-    [user],
+    [user, loadBudgets, loadBudgetCategories],
   );
 
   const deleteBudget = useCallback(async (budgetId: string) => {
