@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Plus, Calculator, DollarSign, TrendingUp, AlertTriangle, CheckCircle, Edit3, Trash2, X } from 'lucide-react';
 import BudgetEditor from './BudgetEditor';
 import { useFinanceData } from '../hooks/useFinanceData';
@@ -51,12 +51,24 @@ const Budget: React.FC = () => {
   const [feedbackMessage, setFeedbackMessage] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
   // Calculate running totals for real-time feedback
-  const totalBudget = budgetFormData.totalBudget.trim() === '' ? 0 : (parseFloat(budgetFormData.totalBudget) || 0);
-  const categoryTotal = Object.values(budgetFormData.categories)
-    .reduce((sum, amount) => {
-      const value = typeof amount === 'string' && amount.trim() === '' ? 0 : (parseFloat(amount) || 0);
-      return sum + value;
-    }, 0);
+  const totalBudget = useMemo(() => {
+    const rawValue = budgetFormData.totalBudget?.trim() || '';
+    if (rawValue === '') return 0;
+    const parsed = parseFloat(rawValue);
+    return isNaN(parsed) ? 0 : Math.max(0, parsed);
+  }, [budgetFormData.totalBudget]);
+
+  const categoryTotal = useMemo(() => {
+    return Object.values(budgetFormData.categories || {})
+      .reduce((sum, amount) => {
+        if (!amount || typeof amount !== 'string') return sum;
+        const rawValue = amount.trim();
+        if (rawValue === '') return sum;
+        const parsed = parseFloat(rawValue);
+        return sum + (isNaN(parsed) ? 0 : Math.max(0, parsed));
+      }, 0);
+  }, [budgetFormData.categories]);
+
   const remainingBudget = totalBudget - categoryTotal;
   const isOverBudget = categoryTotal > totalBudget && totalBudget > 0;
 
@@ -344,22 +356,31 @@ const Budget: React.FC = () => {
                     />
                   </div>
 
-                  <div className="flex gap-2 mt-4">
+                  <div className="flex gap-3 mt-4">
                     <button
                       onClick={() => setEditingUser(user.id)}
-                      className="px-3 py-2 text-gray-600 border border-gray-300 text-sm rounded-lg hover:bg-gray-50"
+                      className="flex items-center gap-2 px-4 py-2 text-blue-600 border border-blue-300 bg-blue-50 text-sm rounded-lg hover:bg-blue-100 hover:border-blue-400 min-h-[44px] touch-manipulation"
+                      style={{ WebkitTapHighlightColor: 'transparent' }}
+                      aria-label={`Edit budget for ${user.name}`}
+                      title="Edit budget categories and amounts"
                     >
-                      <Edit3 className="h-4 w-4" />
+                      <Edit3 className="h-5 w-5" />
+                      <span className="font-medium">Edit</span>
                     </button>
                     <button
                       onClick={() => {
                         const b = currentMonthBudgets.find((bud) => bud.userId === user.id);
-                        if (b) handleDeleteBudget(b);
+                        if (b && confirm(`Are you sure you want to delete the budget for ${user.name}? This action cannot be undone.`)) {
+                          handleDeleteBudget(b);
+                        }
                       }}
-                      className="px-3 py-2 text-gray-600 border border-gray-300 text-sm rounded-lg hover:bg-gray-50"
-                      title="Delete budget"
+                      className="flex items-center gap-2 px-4 py-2 text-red-600 border border-red-300 bg-red-50 text-sm rounded-lg hover:bg-red-100 hover:border-red-400 min-h-[44px] touch-manipulation"
+                      style={{ WebkitTapHighlightColor: 'transparent' }}
+                      aria-label={`Delete budget for ${user.name}`}
+                      title="Delete this budget permanently"
                     >
-                      <Trash2 className="h-4 w-4" />
+                      <Trash2 className="h-5 w-5" />
+                      <span className="font-medium">Delete</span>
                     </button>
                   </div>
                 </div>

@@ -743,10 +743,12 @@ const Users: React.FC = () => {
                         {editingNameUser !== user.id && (
                           <button
                             onClick={() => handleEditName(user.id, user.name)}
-                            className="p-1 text-gray-400 hover:text-blue-600 transition-colors"
+                            className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg min-h-[44px] min-w-[44px] flex items-center justify-center touch-manipulation"
+                            style={{ WebkitTapHighlightColor: 'transparent' }}
+                            aria-label={`Edit name for ${user.name}`}
                             title="Edit name"
                           >
-                            <Edit3 className="h-3 w-3" />
+                            <Edit3 className="h-4 w-4" />
                           </button>
                         )}
                       </div>
@@ -793,10 +795,12 @@ const Users: React.FC = () => {
                         {editingUser !== user.id && (
                           <button
                             onClick={() => handleEditIncome(user.id, user.monthlyIncome)}
-                            className="p-1 text-gray-400 hover:text-blue-600 transition-colors"
+                            className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg min-h-[44px] min-w-[44px] flex items-center justify-center touch-manipulation"
+                            style={{ WebkitTapHighlightColor: 'transparent' }}
+                            aria-label={`Edit monthly income for ${user.name}`}
                             title="Edit monthly income"
                           >
-                            <Edit3 className="h-3 w-3" />
+                            <Edit3 className="h-4 w-4" />
                           </button>
                         )}
                       </div>
@@ -805,9 +809,12 @@ const Users: React.FC = () => {
                   
                   <button
                     onClick={() => handleDeleteUserClick(user.id, user.name)}
-                    className="p-2 text-gray-400 hover:text-red-600 transition-colors"
+                    className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg min-h-[44px] min-w-[44px] flex items-center justify-center touch-manipulation"
+                    style={{ WebkitTapHighlightColor: 'transparent' }}
+                    aria-label={`Delete ${user.name} from household`}
+                    title="Remove from household"
                   >
-                    <Trash2 className="h-4 w-4" />
+                    <Trash2 className="h-5 w-5" />
                   </button>
                 </div>
               </div>

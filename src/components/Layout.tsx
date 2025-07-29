@@ -23,6 +23,7 @@ interface LayoutProps {
 const Layout: React.FC<LayoutProps> = ({ children, activeTab, onTabChange }) => {
   const { profile, signOut } = useAuth();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isSigningOut, setIsSigningOut] = useState(false);
 
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: BarChart3 },
@@ -34,7 +35,15 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, onTabChange }) => 
   ];
 
   const handleSignOut = async () => {
-    await signOut();
+    if (isSigningOut) return; // Prevent multiple clicks
+    
+    setIsSigningOut(true);
+    try {
+      await signOut();
+    } finally {
+      // Reset the flag after a short delay in case signOut doesn't redirect immediately
+      setTimeout(() => setIsSigningOut(false), 1000);
+    }
   };
 
   const NavItem = ({ item, isMobile = false }: { item: typeof navItems[0], isMobile?: boolean }) => {
@@ -112,10 +121,17 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, onTabChange }) => 
           <div className="flex-shrink-0 border-t border-gray-200 p-4">
             <button
               onClick={handleSignOut}
-              className="flex items-center gap-2 text-gray-600 hover:text-gray-900 transition-colors"
+              disabled={isSigningOut}
+              className={`flex items-center gap-2 transition-colors min-h-[44px] ${
+                isSigningOut 
+                  ? 'text-gray-400 cursor-not-allowed' 
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
             >
               <LogOut className="h-4 w-4" />
-              <span className="text-sm">Sign out</span>
+              <span className="text-sm">
+                {isSigningOut ? 'Signing out...' : 'Sign out'}
+              </span>
             </button>
           </div>
         </div>
@@ -192,11 +208,18 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, onTabChange }) => 
                 <div className="border-t border-gray-200 p-4">
                   <button
                     onClick={handleSignOut}
-                    className="flex items-center gap-3 text-gray-600 active:text-gray-900 transition-colors w-full p-4 rounded-lg active:bg-gray-100 min-h-[56px] touch-manipulation"
+                    disabled={isSigningOut}
+                    className={`flex items-center gap-3 transition-colors w-full p-4 rounded-lg min-h-[56px] touch-manipulation ${
+                      isSigningOut
+                        ? 'text-gray-400 cursor-not-allowed'
+                        : 'text-gray-600 active:text-gray-900 active:bg-gray-100'
+                    }`}
                     style={{ WebkitTapHighlightColor: 'transparent' }}
                   >
                     <LogOut className="h-5 w-5" />
-                    <span className="font-medium">Sign out</span>
+                    <span className="font-medium">
+                      {isSigningOut ? 'Signing out...' : 'Sign out'}
+                    </span>
                   </button>
                 </div>
               </div>

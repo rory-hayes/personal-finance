@@ -298,11 +298,30 @@ const Goals: React.FC = () => {
                 <input
                   type="number"
                   id="currentAmount"
+                  name="currentAmount"
                   value={formData.currentAmount}
-                  onChange={(e) => handleFieldChange('currentAmount', e.target.value)}
-                  placeholder="0"
+                  onChange={(e) => {
+                    // Prevent negative values and ensure clean input
+                    const value = e.target.value;
+                    if (value === '' || (!isNaN(parseFloat(value)) && parseFloat(value) >= 0)) {
+                      handleFieldChange('currentAmount', value);
+                    }
+                  }}
+                  onBlur={(e) => {
+                    // Clean up the value on blur
+                    const value = e.target.value;
+                    if (value && !isNaN(parseFloat(value))) {
+                      const cleanValue = parseFloat(value).toString();
+                      if (cleanValue !== value) {
+                        handleFieldChange('currentAmount', cleanValue);
+                      }
+                    }
+                  }}
+                  placeholder="0.00"
                   min="0"
                   step="0.01"
+                  autoComplete="off"
+                  inputMode="decimal"
                   {...getFieldProps('currentAmount')}
                 />
                 {getFieldProps('currentAmount').error && (

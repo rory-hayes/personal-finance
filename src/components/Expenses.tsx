@@ -1462,14 +1462,35 @@ const Expenses: React.FC = () => {
       )}
 
       {showRecurringManagement && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setShowRecurringManagement(false);
+            }
+          }}
+          onKeyDown={(e) => {
+            if (e.key === 'Escape') {
+              setShowRecurringManagement(false);
+            }
+          }}
+          tabIndex={-1}
+        >
           <div className="bg-white rounded-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="flex justify-end p-4">
-              <button onClick={() => setShowRecurringManagement(false)} className="text-gray-400 hover:text-gray-600">
+            <div className="flex items-center justify-between p-4 border-b border-gray-200">
+              <h2 className="text-xl font-bold text-gray-900">Manage Recurring Expenses</h2>
+              <button 
+                onClick={() => setShowRecurringManagement(false)} 
+                className="text-gray-400 hover:text-gray-600 p-2 rounded-lg min-h-[44px] min-w-[44px] flex items-center justify-center touch-manipulation"
+                style={{ WebkitTapHighlightColor: 'transparent' }}
+                aria-label="Close modal"
+              >
                 <X className="h-6 w-6" />
               </button>
             </div>
-            <RecurringExpensesManager />
+            <div className="p-4">
+              <RecurringExpensesManager />
+            </div>
           </div>
         </div>
       )}

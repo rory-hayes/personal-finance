@@ -97,8 +97,17 @@ const RecurringExpensesManager: React.FC = () => {
   };
 
   const handleDelete = async (id: string) => {
-    if (confirm('Delete this recurring expense?')) {
-      await deleteRecurringExpense(id);
+    const expense = recurringExpenses.find(e => e.id === id);
+    const expenseName = expense?.description || 'this expense';
+    
+    if (confirm(`Are you sure you want to delete "${expenseName}"? This action cannot be undone.`)) {
+      try {
+        await deleteRecurringExpense(id);
+        showToast.success(`"${expenseName}" has been deleted`);
+      } catch (error) {
+        console.error('Error deleting recurring expense:', error);
+        showToast.error('Failed to delete recurring expense. Please try again.');
+      }
     }
   };
 
@@ -224,18 +233,22 @@ const RecurringExpensesManager: React.FC = () => {
               <button
                 type="button"
                 onClick={() => handleEdit(exp.id)}
-                className="p-1 text-gray-400 hover:text-blue-600"
-                title="Edit"
+                className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg min-h-[44px] min-w-[44px] flex items-center justify-center touch-manipulation"
+                style={{ WebkitTapHighlightColor: 'transparent' }}
+                aria-label={`Edit ${exp.description}`}
+                title="Edit recurring expense"
               >
-                <Edit3 size={16} />
+                <Edit3 size={18} />
               </button>
               <button
                 type="button"
                 onClick={() => handleDelete(exp.id)}
-                className="p-1 text-gray-400 hover:text-red-600"
-                title="Delete"
+                className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg min-h-[44px] min-w-[44px] flex items-center justify-center touch-manipulation"
+                style={{ WebkitTapHighlightColor: 'transparent' }}
+                aria-label={`Delete ${exp.description}`}
+                title="Delete recurring expense"
               >
-                <Trash2 size={16} />
+                <Trash2 size={18} />
               </button>
             </div>
           </li>
